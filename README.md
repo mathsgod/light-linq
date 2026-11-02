@@ -287,3 +287,30 @@ only for an empty result; null and false are valid results. `single($predicate)`
 throws `UnderflowException` for zero matches and `UnexpectedValueException` for
 multiple matches. `all($predicate)` is true for an empty sequence. Terminal
 operations apply to the sequence produced by earlier operators, including paging.
+
+### Terminal sum
+
+```php
+$total = $query
+    ->where(Expr::eq(Expr::field('Status'), 'Paid'))
+    ->sum(Expr::field('Amount'));
+```
+
+`Queryable::sum($selector)` executes immediately and sums the selected values.
+Null values are ignored; empty or all-null results return zero. This terminal
+method differs from `Expr::sum($field)`, which builds a grouped aggregate
+expression. The in-memory provider returns an int or float.
+
+### Terminal average, minimum and maximum
+
+```php
+$average = $query->average(Expr::field('Amount'));
+$minimum = $query->min(Expr::field('Amount'));
+$maximum = $query->max(Expr::field('Amount'));
+```
+
+These Queryable operations ignore null values and return null for an empty or
+all-null result. They preserve preceding filters, pagination, distinct rows and
+named projections, just like terminal `sum()`. This nullable behavior follows
+SQL aggregates; it differs from callback-based Enumerable aggregates, whose
+empty-sequence and null behavior follows their existing implementations.

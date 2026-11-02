@@ -121,6 +121,34 @@ final readonly class Queryable implements IQueryable
         return $this->nonNegativeCall('take', $count);
     }
 
+    public function sum(ValueExpression $selector): int|float|string
+    {
+        return $this->queryProvider->execute(new MethodCallExpression(
+            $this->queryExpression, 'sum', ['selector' => $selector],
+        ));
+    }
+
+    public function average(ValueExpression $selector): int|float|string|null
+    {
+        return $this->queryProvider->execute(new MethodCallExpression(
+            $this->queryExpression, 'average', ['selector' => $selector],
+        ));
+    }
+
+    public function min(ValueExpression $selector): mixed
+    {
+        return $this->queryProvider->execute(new MethodCallExpression(
+            $this->queryExpression, 'min', ['selector' => $selector],
+        ));
+    }
+
+    public function max(ValueExpression $selector): mixed
+    {
+        return $this->queryProvider->execute(new MethodCallExpression(
+            $this->queryExpression, 'max', ['selector' => $selector],
+        ));
+    }
+
     public function count(): int
     {
         return $this->queryProvider->execute($this->terminal('count'));

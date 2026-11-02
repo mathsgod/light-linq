@@ -50,6 +50,12 @@ interface IQueryable extends IteratorAggregate
 
     public function take(int $count): self;
 
+    /** Numeric strings from SQL decimal aggregates retain their precision. */
+    public function sum(ValueExpression $selector): int|float|string;
+    public function average(ValueExpression $selector): int|float|string|null;
+    public function min(ValueExpression $selector): mixed;
+    public function max(ValueExpression $selector): mixed;
+
     public function count(): int;
 
     public function any(?ValueExpression $predicate = null): bool;

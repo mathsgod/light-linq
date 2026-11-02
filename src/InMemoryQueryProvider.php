@@ -69,11 +69,31 @@ final class InMemoryQueryProvider implements IQueryProvider
             'single' => $this->terminalRows($source, $expression, true),
             'all' => $this->allRows($source, $expression->arguments['predicate']),
             'contains' => Enumerable::from($source)->contains($expression->arguments['value']),
+            'average', 'min', 'max' => $this->terminalAggregate($source, $expression),
+            'sum' => Enumerable::from($source)->sum(fn ($row) => $this->evaluate($expression->arguments['selector'], $row)),
             'count' => iterator_count($this->iterator($source)),
             'any' => $this->any($source),
             'first' => $this->first($source),
             default => throw new \LogicException("Unsupported query method: {$expression->method}"),
         };
+    }
+
+    private function terminalAggregate(iterable $source, MethodCallExpression $expression): mixed
+    {
+        $result = null;
+        $count = 0;
+        $sum = 0;
+        foreach ($source as $row) {
+            $value = $this->evaluate($expression->arguments['selector'], $row);
+            if ($value === null) continue;
+            if ($expression->method === 'average') $sum += $value;
+            elseif ($count === 0) $result = $value;
+            elseif ($expression->method === 'min') $result = min($result, $value);
+            else $result = max($result, $value);
+            ++$count;
+        }
+        if ($count === 0) return null;
+        return $expression->method === 'average' ? $sum / $count : $result;
     }
 
     private function terminalRows(iterable $source, MethodCallExpression $expression, bool $single): mixed
