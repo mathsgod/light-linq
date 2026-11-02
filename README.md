@@ -264,3 +264,26 @@ The in-memory provider returns iterable `Grouping` objects with `key`, `items`,
 and `count()` when a grouping is enumerated directly. Distinct values and grouping
 keys use strict PHP equality, including array member order and object identity.
 SQL providers use database equality and collation rules instead.
+
+### Secondary ordering and terminal query operators
+
+`Queryable` supports secondary ordering and these terminal operations:
+
+```php
+$sorted = $query->orderBy(Expr::field('Country'))
+    ->thenBy(Expr::field('Name'))
+    ->thenByDescending(Expr::field('Id'));
+
+$first = $sorted->firstOrDefault(default: null);
+$unique = $query->single(Expr::eq(Expr::field('Id'), 10));
+$allPaid = $query->all(Expr::eq(Expr::field('IsPaid'), true));
+$hasHK = $query->select(Expr::field('Country'))->contains('HK');
+```
+
+`thenBy()` and `thenByDescending()` must follow `orderBy()` or another secondary
+ordering. A new `orderBy()` starts a new primary ordering. In-memory sorting is
+stable for equal keys. `firstOrDefault($predicate, $default)` returns the default
+only for an empty result; null and false are valid results. `single($predicate)`
+throws `UnderflowException` for zero matches and `UnexpectedValueException` for
+multiple matches. `all($predicate)` is true for an empty sequence. Terminal
+operations apply to the sequence produced by earlier operators, including paging.

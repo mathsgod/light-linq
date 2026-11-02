@@ -40,6 +40,12 @@ interface IQueryable extends IteratorAggregate
 
     public function orderByDescending(ValueExpression $keySelector): self;
 
+    public function thenBy(ValueExpression $keySelector): self;
+    public function thenByDescending(ValueExpression $keySelector): self;
+    public function firstOrDefault(?ValueExpression $predicate = null, mixed $default = null): mixed;
+    public function single(?ValueExpression $predicate = null): mixed;
+    public function all(ValueExpression $predicate): bool;
+    public function contains(mixed $value): bool;
     public function skip(int $count): self;
 
     public function take(int $count): self;

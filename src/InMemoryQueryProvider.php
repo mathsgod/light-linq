@@ -34,6 +34,27 @@ final class InMemoryQueryProvider implements IQueryProvider
             throw new \LogicException('The provider expected a query expression.');
         }
 
+        if (in_array($expression->method, ['orderBy', 'thenBy'], true)) {
+            $keys = [];
+            $node = $expression;
+            while ($node instanceof MethodCallExpression && $node->method === 'thenBy') {
+                array_unshift($keys, $node->arguments);
+                $node = $node->source;
+            }
+            if (!$node instanceof MethodCallExpression || $node->method !== 'orderBy') {
+                throw new \LogicException('thenBy() requires a preceding orderBy().');
+            }
+            array_unshift($keys, $node->arguments);
+            $items = iterator_to_array($this->iterator($this->execute($node->source)), false);
+            usort($items, function ($left, $right) use ($keys): int {
+                foreach ($keys as $key) {
+                    $comparison = $this->evaluate($key['keySelector'], $left) <=> $this->evaluate($key['keySelector'], $right);
+                    if ($comparison !== 0) return $key['descending'] ? -$comparison : $comparison;
+                }
+                return 0;
+            });
+            return $items;
+        }
         $source = $this->execute($expression->source);
 
         return match ($expression->method) {
@@ -44,11 +65,10 @@ final class InMemoryQueryProvider implements IQueryProvider
             'select' => $this->select($source, $expression->arguments['selector']),
             'skip' => $this->skip($source, $expression->arguments['count']),
             'take' => $this->take($source, $expression->arguments['count']),
-            'orderBy' => $this->orderBy(
-                $source,
-                $expression->arguments['keySelector'],
-                $expression->arguments['descending'],
-            ),
+            'firstOrDefault' => $this->terminalRows($source, $expression, false),
+            'single' => $this->terminalRows($source, $expression, true),
+            'all' => $this->allRows($source, $expression->arguments['predicate']),
+            'contains' => Enumerable::from($source)->contains($expression->arguments['value']),
             'count' => iterator_count($this->iterator($source)),
             'any' => $this->any($source),
             'first' => $this->first($source),
@@ -56,6 +76,19 @@ final class InMemoryQueryProvider implements IQueryProvider
         };
     }
 
+    private function terminalRows(iterable $source, MethodCallExpression $expression, bool $single): mixed
+    {
+        $predicate = $expression->arguments['predicate'];
+        $rows = Enumerable::from($predicate === null ? $source : $this->where($source, $predicate));
+        return $single ? $rows->single() : $rows->firstOrDefault(default: $expression->arguments['default']);
+    }
+    private function allRows(iterable $source, ValueExpression $predicate): bool
+    {
+        foreach ($source as $row) {
+            if (!$this->evaluate($predicate, $row)) return false;
+        }
+        return true;
+    }
     private function groupRows(iterable $source, ValueExpression $selector): array
     {
         $keys = $items = [];
@@ -189,16 +222,6 @@ final class InMemoryQueryProvider implements IQueryProvider
                 return;
             }
         }
-    }
-
-    private function orderBy(iterable $source, ValueExpression $selector, bool $descending): array
-    {
-        $items = is_array($source) ? array_values($source) : iterator_to_array($source, false);
-        usort($items, function (mixed $left, mixed $right) use ($selector, $descending): int {
-            $comparison = $this->evaluate($selector, $left) <=> $this->evaluate($selector, $right);
-            return $descending ? -$comparison : $comparison;
-        });
-        return $items;
     }
 
     private function any(iterable $source): bool

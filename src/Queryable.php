@@ -83,6 +83,34 @@ final readonly class Queryable implements IQueryable
         return $this->call('orderBy', ['keySelector' => $keySelector, 'descending' => true]);
     }
 
+    public function thenBy(ValueExpression $keySelector): self
+    {
+        return $this->secondaryOrder($keySelector, false);
+    }
+    public function thenByDescending(ValueExpression $keySelector): self
+    {
+        return $this->secondaryOrder($keySelector, true);
+    }
+    public function firstOrDefault(?ValueExpression $predicate = null, mixed $default = null): mixed
+    {
+        return $this->queryProvider->execute(new MethodCallExpression($this->queryExpression,
+            'firstOrDefault', ['predicate' => $predicate, 'default' => $default]));
+    }
+    public function single(?ValueExpression $predicate = null): mixed
+    {
+        return $this->queryProvider->execute(new MethodCallExpression($this->queryExpression,
+            'single', ['predicate' => $predicate]));
+    }
+    public function all(ValueExpression $predicate): bool
+    {
+        return $this->queryProvider->execute(new MethodCallExpression($this->queryExpression,
+            'all', ['predicate' => $predicate]));
+    }
+    public function contains(mixed $value): bool
+    {
+        return $this->queryProvider->execute(new MethodCallExpression($this->queryExpression,
+            'contains', ['value' => $value]));
+    }
     public function skip(int $count): self
     {
         return $this->nonNegativeCall('skip', $count);
@@ -127,6 +155,15 @@ final readonly class Queryable implements IQueryable
             throw new \LogicException('The provider did not return an iterable query result.');
         }
         yield from $result;
+    }
+
+    private function secondaryOrder(ValueExpression $keySelector, bool $descending): self
+    {
+        if (!$this->queryExpression instanceof MethodCallExpression
+            || !in_array($this->queryExpression->method, ['orderBy', 'thenBy'], true)) {
+            throw new \LogicException('thenBy() must follow orderBy() or thenBy().');
+        }
+        return $this->call('thenBy', ['keySelector' => $keySelector, 'descending' => $descending]);
     }
 
     private function joinQuery(
