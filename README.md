@@ -314,3 +314,46 @@ all-null result. They preserve preceding filters, pagination, distinct rows and
 named projections, just like terminal `sum()`. This nullable behavior follows
 SQL aggregates; it differs from callback-based Enumerable aggregates, whose
 empty-sequence and null behavior follows their existing implementations.
+
+### Flattening query sources with selectMany
+
+```php
+$rows = $customers->selectMany(
+    $orders,
+    Expr::projection([
+        'CustomerId' => 'outer.Id',
+        'OrderId' => 'inner.Id',
+    ]),
+    predicate: Expr::eq(Expr::field('outer.Id'), Expr::field('inner.CustomerId')),
+)->toArray();
+```
+
+`Queryable::selectMany($inner, $resultSelector, $predicate = null)` flattens the
+matching inner sequence for every outer element. Both queries must share the
+same provider instance. The result selector and optional predicate reference
+`outer.*` and `inner.*` fields. Without a predicate, every outer/inner pair is
+returned. Empty inner sequences produce no rows; duplicates are preserved.
+Filter, order and page each source before flattening, or use a named result
+projection to compose further field-based query operations afterwards.
+
+This is an explicit expression-based API rather than C#'s collection-selector
+lambda overloads. `Enumerable::selectMany()` continues to accept a PHP callback
+for flattening nested iterables. In-memory Queryable predicates use relational
+null comparisons: nullable field-to-field comparisons do not match nulls;
+explicit null constants perform null tests. Other comparison behavior follows
+PHP types; SQL providers use database types and collations.
+
+### Single-or-default and last elements
+
+```php
+$one = $query->singleOrDefault(Expr::eq(Expr::field('Id'), 10), default: null);
+$last = $query->orderBy(Expr::field('CreatedAt'))->thenBy(Expr::field('Id'))->last();
+$optionalLast = $query->orderBy(Expr::field('Id'))->lastOrDefault(default: null);
+```
+
+`singleOrDefault()` returns the default for zero matches and throws
+`UnexpectedValueException` for multiple matches. `last()` throws
+`UnderflowException` when no element matches; `lastOrDefault()` returns the
+default instead. Null and false are valid results and do not trigger defaults.
+The in-memory provider uses sequence order and supports the same predicates and
+defaults as the existing callback-based Enumerable methods.

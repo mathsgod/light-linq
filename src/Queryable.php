@@ -52,6 +52,22 @@ final readonly class Queryable implements IQueryable
         return $this->call('select', ['selector' => $selector]);
     }
 
+    /** Flatten another query, optionally matching each outer/inner pair. */
+    public function selectMany(
+        IQueryable $inner,
+        ValueExpression $resultSelector,
+        ?ValueExpression $predicate = null,
+    ): self {
+        if ($inner->provider() !== $this->queryProvider) {
+            throw new \InvalidArgumentException('selectMany() sources must use the same provider instance.');
+        }
+        return $this->call('selectMany', [
+            'inner' => $inner->expression(),
+            'resultSelector' => $resultSelector,
+            'predicate' => $predicate,
+        ]);
+    }
+
     /** Keys are relative to each source; result fields use outer.* and inner.*. */
     public function join(
         IQueryable $inner,
@@ -101,6 +117,24 @@ final readonly class Queryable implements IQueryable
         return $this->queryProvider->execute(new MethodCallExpression($this->queryExpression,
             'single', ['predicate' => $predicate]));
     }
+    public function singleOrDefault(?ValueExpression $predicate = null, mixed $default = null): mixed
+    {
+        return $this->queryProvider->execute(new MethodCallExpression($this->queryExpression,
+            'singleOrDefault', ['predicate' => $predicate, 'default' => $default]));
+    }
+
+    public function last(?ValueExpression $predicate = null): mixed
+    {
+        return $this->queryProvider->execute(new MethodCallExpression($this->queryExpression,
+            'last', ['predicate' => $predicate]));
+    }
+
+    public function lastOrDefault(?ValueExpression $predicate = null, mixed $default = null): mixed
+    {
+        return $this->queryProvider->execute(new MethodCallExpression($this->queryExpression,
+            'lastOrDefault', ['predicate' => $predicate, 'default' => $default]));
+    }
+
     public function all(ValueExpression $predicate): bool
     {
         return $this->queryProvider->execute(new MethodCallExpression($this->queryExpression,

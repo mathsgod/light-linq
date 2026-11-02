@@ -22,6 +22,13 @@ interface IQueryable extends IteratorAggregate
 
     public function select(ValueExpression $selector): self;
 
+    /** Result and predicate fields use outer.* and inner.*. */
+    public function selectMany(
+        IQueryable $inner,
+        ValueExpression $resultSelector,
+        ?ValueExpression $predicate = null,
+    ): self;
+
     public function join(
         IQueryable $inner,
         ValueExpression $outerKey,
@@ -44,6 +51,9 @@ interface IQueryable extends IteratorAggregate
     public function thenByDescending(ValueExpression $keySelector): self;
     public function firstOrDefault(?ValueExpression $predicate = null, mixed $default = null): mixed;
     public function single(?ValueExpression $predicate = null): mixed;
+    public function singleOrDefault(?ValueExpression $predicate = null, mixed $default = null): mixed;
+    public function last(?ValueExpression $predicate = null): mixed;
+    public function lastOrDefault(?ValueExpression $predicate = null, mixed $default = null): mixed;
     public function all(ValueExpression $predicate): bool;
     public function contains(mixed $value): bool;
     public function skip(int $count): self;

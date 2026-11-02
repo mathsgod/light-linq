@@ -58,6 +58,7 @@ final class InMemoryQueryProvider implements IQueryProvider
         $source = $this->execute($expression->source);
 
         return match ($expression->method) {
+            'selectMany' => $this->flattenRows($source, $expression),
             'join', 'leftJoin' => $this->joinRows($source, $expression),
             'groupBy' => $this->groupRows($source, $expression->arguments['keySelector']),
             'distinct' => $this->distinctRows($source),
@@ -65,8 +66,7 @@ final class InMemoryQueryProvider implements IQueryProvider
             'select' => $this->select($source, $expression->arguments['selector']),
             'skip' => $this->skip($source, $expression->arguments['count']),
             'take' => $this->take($source, $expression->arguments['count']),
-            'firstOrDefault' => $this->terminalRows($source, $expression, false),
-            'single' => $this->terminalRows($source, $expression, true),
+            'firstOrDefault', 'single', 'singleOrDefault', 'last', 'lastOrDefault' => $this->terminalRows($source, $expression),
             'all' => $this->allRows($source, $expression->arguments['predicate']),
             'contains' => Enumerable::from($source)->contains($expression->arguments['value']),
             'average', 'min', 'max' => $this->terminalAggregate($source, $expression),
@@ -96,11 +96,13 @@ final class InMemoryQueryProvider implements IQueryProvider
         return $expression->method === 'average' ? $sum / $count : $result;
     }
 
-    private function terminalRows(iterable $source, MethodCallExpression $expression, bool $single): mixed
+    private function terminalRows(iterable $source, MethodCallExpression $expression): mixed
     {
         $predicate = $expression->arguments['predicate'];
         $rows = Enumerable::from($predicate === null ? $source : $this->where($source, $predicate));
-        return $single ? $rows->single() : $rows->firstOrDefault(default: $expression->arguments['default']);
+        $method = $expression->method;
+        return str_ends_with($method, 'OrDefault')
+            ? $rows->$method(default: $expression->arguments['default']) : $rows->$method();
     }
     private function allRows(iterable $source, ValueExpression $predicate): bool
     {
@@ -163,6 +165,46 @@ final class InMemoryQueryProvider implements IQueryProvider
             'max' => max($values),
         };
     }
+    private function flattenRows(iterable $source, MethodCallExpression $expression): \Generator
+    {
+        $arguments = $expression->arguments;
+        $inner = null;
+        foreach ($source as $outer) {
+            // Materialize once for repeated enumeration, but do not read an inner source
+            // at all if the outer sequence is empty.
+            $inner ??= iterator_to_array($this->iterator($this->execute($arguments['inner'])), false);
+            foreach ($inner as $item) {
+                $pair = ['outer' => $outer, 'inner' => $item];
+                if ($arguments['predicate'] !== null && $this->collectionPredicate($arguments['predicate'], $pair) !== true) continue;
+                yield $this->evaluate($arguments['resultSelector'], $pair);
+            }
+        }
+    }
+
+    /** Match SQL WHERE/ON truth values, including UNKNOWN for nullable comparisons. */
+    private function collectionPredicate(ValueExpression $expression, array $pair): ?bool
+    {
+        if ($expression instanceof BinaryExpression) {
+            $left = $this->evaluate($expression->left, $pair);
+            $right = $this->evaluate($expression->right, $pair);
+            $nullTest = in_array($expression->operator, ['=', '!='], true)
+                && ($expression->left instanceof ConstantExpression && $expression->left->value === null
+                    || $expression->right instanceof ConstantExpression && $expression->right->value === null);
+            if (!$nullTest && ($left === null || $right === null)) return null;
+        } elseif ($expression instanceof LogicalExpression) {
+            $left = $this->collectionPredicate($expression->left, $pair);
+            $right = $this->collectionPredicate($expression->right, $pair);
+            if ($expression->operator === 'and') {
+                if ($left === false || $right === false) return false;
+                return $left === null || $right === null ? null : true;
+            }
+            if ($left === true || $right === true) return true;
+            return $left === null || $right === null ? null : false;
+        }
+        $value = $this->evaluate($expression, $pair);
+        return $value === null ? null : (bool) $value;
+    }
+
     private function joinRows(iterable $source, MethodCallExpression $expression): \Generator
     {
         $arguments = $expression->arguments;
