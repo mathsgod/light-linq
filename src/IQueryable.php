@@ -16,6 +16,8 @@ interface IQueryable extends IteratorAggregate
 
     public function provider(): IQueryProvider;
 
+    public function groupBy(ValueExpression $keySelector): self;
+    public function distinct(): self;
     public function where(ValueExpression $predicate): self;
 
     public function select(ValueExpression $selector): self;

@@ -38,6 +38,8 @@ final class InMemoryQueryProvider implements IQueryProvider
 
         return match ($expression->method) {
             'join', 'leftJoin' => $this->joinRows($source, $expression),
+            'groupBy' => $this->groupRows($source, $expression->arguments['keySelector']),
+            'distinct' => $this->distinctRows($source),
             'where' => $this->where($source, $expression->arguments['predicate']),
             'select' => $this->select($source, $expression->arguments['selector']),
             'skip' => $this->skip($source, $expression->arguments['count']),
@@ -54,6 +56,60 @@ final class InMemoryQueryProvider implements IQueryProvider
         };
     }
 
+    private function groupRows(iterable $source, ValueExpression $selector): array
+    {
+        $keys = $items = [];
+        foreach ($source as $row) {
+            $key = $this->evaluate($selector, $row);
+            $index = array_search($key, $keys, true);
+            if ($index === false) {
+                $index = count($keys);
+                $keys[] = $key;
+                $items[$index] = [];
+            }
+            $items[$index][] = $row;
+        }
+        return array_map(static fn ($key, $rows) => new Grouping($key, $rows), $keys, $items);
+    }
+    private function distinctRows(iterable $source): \Generator
+    {
+        $seen = [];
+        foreach ($source as $row) {
+            if (!in_array($row, $seen, true)) {
+                $seen[] = $row;
+                yield $row;
+            }
+        }
+    }
+    private function groupKey(\PhpLinq\Expression\GroupKeyExpression $expression, mixed $row): mixed
+    {
+        if (!$row instanceof Grouping) {
+            throw new \LogicException('Group keys require a grouping.');
+        }
+        return $expression->member === null ? $row->key : $this->readField($row->key, $expression->member);
+    }
+    private function aggregate(\PhpLinq\Expression\AggregateExpression $expression, mixed $row): mixed
+    {
+        if (!$row instanceof Grouping) {
+            throw new \LogicException('Aggregates require a grouping.');
+        }
+        if ($expression->operand === null) {
+            return count($row);
+        }
+        $values = [];
+        foreach ($row as $item) {
+            $value = $this->evaluate($expression->operand, $item);
+            if ($value !== null) $values[] = $value;
+        }
+        if ($expression->function === 'count') return count($values);
+        if ($values === []) return null;
+        return match ($expression->function) {
+            'sum' => array_sum($values),
+            'avg' => array_sum($values) / count($values),
+            'min' => min($values),
+            'max' => max($values),
+        };
+    }
     private function joinRows(iterable $source, MethodCallExpression $expression): \Generator
     {
         $arguments = $expression->arguments;
@@ -164,6 +220,8 @@ final class InMemoryQueryProvider implements IQueryProvider
     private function evaluate(ValueExpression $expression, mixed $row): mixed
     {
         return match (true) {
+            $expression instanceof \PhpLinq\Expression\GroupKeyExpression => $this->groupKey($expression, $row),
+            $expression instanceof \PhpLinq\Expression\AggregateExpression => $this->aggregate($expression, $row),
             $expression instanceof ConstantExpression => $expression->value,
             $expression instanceof FieldExpression => $this->readField($row, $expression->path),
             $expression instanceof BinaryExpression => $this->evaluateBinary($expression, $row),

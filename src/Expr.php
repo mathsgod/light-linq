@@ -13,6 +13,30 @@ use PhpLinq\Expression\ValueExpression;
 
 final class Expr
 {
+    public static function key(?string $member = null): Expression\GroupKeyExpression
+    {
+        return new Expression\GroupKeyExpression($member);
+    }
+    public static function count(?ValueExpression $operand = null): Expression\AggregateExpression
+    {
+        return new Expression\AggregateExpression('count', $operand);
+    }
+    public static function sum(ValueExpression $operand): Expression\AggregateExpression
+    {
+        return new Expression\AggregateExpression('sum', $operand);
+    }
+    public static function avg(ValueExpression $operand): Expression\AggregateExpression
+    {
+        return new Expression\AggregateExpression('avg', $operand);
+    }
+    public static function min(ValueExpression $operand): Expression\AggregateExpression
+    {
+        return new Expression\AggregateExpression('min', $operand);
+    }
+    public static function max(ValueExpression $operand): Expression\AggregateExpression
+    {
+        return new Expression\AggregateExpression('max', $operand);
+    }
     public static function field(string $path): FieldExpression
     {
         return new FieldExpression($path);

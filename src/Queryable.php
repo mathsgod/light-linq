@@ -34,6 +34,14 @@ final readonly class Queryable implements IQueryable
         return $this->queryProvider;
     }
 
+    public function groupBy(ValueExpression $keySelector): self
+    {
+        return $this->call('groupBy', ['keySelector' => $keySelector]);
+    }
+    public function distinct(): self
+    {
+        return $this->call('distinct', []);
+    }
     public function where(ValueExpression $predicate): self
     {
         return $this->call('where', ['predicate' => $predicate]);

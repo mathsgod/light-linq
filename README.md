@@ -231,3 +231,36 @@ strict PHP equality; database comparisons follow the database's types and
 collation. Composite keys use named `Expr::projection()` members. SQL queries
 require named row projections as join sources; use named projections rather
 than scalar selections when composing subsequent joins.
+
+### Grouping, aggregates and distinct values
+
+```php
+use PhpLinq\Expr;
+
+$totals = $orders
+    ->groupBy(Expr::field('CustomerId'))
+    ->where(Expr::gte(Expr::count(), 5))
+    ->select(Expr::projection([
+        'CustomerId' => Expr::key(),
+        'OrderCount' => Expr::count(),
+        'TotalAmount' => Expr::sum(Expr::field('Amount')),
+    ]))
+    ->toArray();
+
+$countries = $customers->select(Expr::field('Country'))->distinct()->toArray();
+```
+
+Use `Expr::fields('Country', 'City')` as a composite grouping key and
+`Expr::key('Country')` to reference a key member. Aggregates include `count()`,
+`sum($field)`, `avg($field)`, `min($field)` and `max($field)`.
+`Expr::count()` counts rows; `Expr::count($field)` counts non-null values.
+Other aggregates ignore null values and return null when all values are null.
+The terminal query method `->count()` counts the resulting groups or distinct rows.
+`distinct()` compares the complete selected value or row. Pagination and distinct
+operations are applied in their specified order; SQL results need an explicit
+`orderBy()` when deterministic ordering is required.
+
+The in-memory provider returns iterable `Grouping` objects with `key`, `items`,
+and `count()` when a grouping is enumerated directly. Distinct values and grouping
+keys use strict PHP equality, including array member order and object identity.
+SQL providers use database equality and collation rules instead.
