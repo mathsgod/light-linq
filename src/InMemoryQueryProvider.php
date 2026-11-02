@@ -58,6 +58,7 @@ final class InMemoryQueryProvider implements IQueryProvider
         $source = $this->execute($expression->source);
 
         return match ($expression->method) {
+            'concat', 'union', 'intersect', 'except' => $this->setRows($source, $expression),
             'selectMany' => $this->flattenRows($source, $expression),
             'join', 'leftJoin' => $this->joinRows($source, $expression),
             'groupBy' => $this->groupRows($source, $expression->arguments['keySelector']),
@@ -76,6 +77,15 @@ final class InMemoryQueryProvider implements IQueryProvider
             'first' => $this->first($source),
             default => throw new \LogicException("Unsupported query method: {$expression->method}"),
         };
+    }
+
+    private function setRows(iterable $source, MethodCallExpression $expression): \Generator
+    {
+        $second = (function () use ($expression): \Generator {
+            yield from $this->execute($expression->arguments['second']);
+        })();
+        $method = $expression->method;
+        yield from Enumerable::from($source)->$method($second);
     }
 
     private function terminalAggregate(iterable $source, MethodCallExpression $expression): mixed

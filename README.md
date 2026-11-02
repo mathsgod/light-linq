@@ -357,3 +357,23 @@ $optionalLast = $query->orderBy(Expr::field('Id'))->lastOrDefault(default: null)
 default instead. Null and false are valid results and do not trigger defaults.
 The in-memory provider uses sequence order and supports the same predicates and
 defaults as the existing callback-based Enumerable methods.
+
+### Queryable set operations
+
+```php
+$first = $firstQuery->select(Expr::fields('CustomerId'));
+$second = $secondQuery->select(Expr::fields('CustomerId'));
+
+$allRows = $first->concat($second);       // keep duplicates
+$combined = $first->union($second);      // distinct values from either query
+$shared = $first->intersect($second);    // distinct values present in both
+$onlyFirst = $first->except($second);    // distinct values absent from second
+
+$ids = $combined->orderBy(Expr::field('CustomerId'))->toArray();
+```
+
+Both sources must share a provider. Set operations compare complete selected
+values or rows, not just primary keys. In-memory queries use the existing
+Enumerable equality rules and first-occurrence order. `concat()` preserves
+all duplicates; the other three operations remove duplicates. Source operators
+remain before the set operation, and subsequent operators apply to its result.

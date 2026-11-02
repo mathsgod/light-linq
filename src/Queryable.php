@@ -52,6 +52,26 @@ final readonly class Queryable implements IQueryable
         return $this->call('select', ['selector' => $selector]);
     }
 
+    public function concat(IQueryable $second): self
+    {
+        return $this->setQuery('concat', $second);
+    }
+
+    public function union(IQueryable $second): self
+    {
+        return $this->setQuery('union', $second);
+    }
+
+    public function intersect(IQueryable $second): self
+    {
+        return $this->setQuery('intersect', $second);
+    }
+
+    public function except(IQueryable $second): self
+    {
+        return $this->setQuery('except', $second);
+    }
+
     /** Flatten another query, optionally matching each outer/inner pair. */
     public function selectMany(
         IQueryable $inner,
@@ -217,6 +237,14 @@ final readonly class Queryable implements IQueryable
             throw new \LogicException('The provider did not return an iterable query result.');
         }
         yield from $result;
+    }
+
+    private function setQuery(string $method, IQueryable $second): self
+    {
+        if ($second->provider() !== $this->queryProvider) {
+            throw new \InvalidArgumentException('Set queries must use the same provider instance.');
+        }
+        return $this->call($method, ['second' => $second->expression()]);
     }
 
     private function secondaryOrder(ValueExpression $keySelector, bool $descending): self

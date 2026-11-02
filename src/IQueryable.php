@@ -22,6 +22,11 @@ interface IQueryable extends IteratorAggregate
 
     public function select(ValueExpression $selector): self;
 
+    public function concat(IQueryable $second): self;
+    public function union(IQueryable $second): self;
+    public function intersect(IQueryable $second): self;
+    public function except(IQueryable $second): self;
+
     /** Result and predicate fields use outer.* and inner.*. */
     public function selectMany(
         IQueryable $inner,
