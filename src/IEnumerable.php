@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace PhpLinq;
+namespace Light\Linq;
 
 use Countable;
 use IteratorAggregate;
-use PhpLinq\Collections\Generic\EqualityComparer;
+use Light\Linq\Collections\Generic\EqualityComparer;
 use Traversable;
 
 /** @template T @extends IteratorAggregate<int, T> */

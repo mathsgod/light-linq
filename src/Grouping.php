@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-namespace PhpLinq;
+namespace Light\Linq;
 /** A group produced by an in-memory query. */
 final readonly class Grouping implements \IteratorAggregate, \Countable
 {

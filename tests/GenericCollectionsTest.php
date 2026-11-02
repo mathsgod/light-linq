@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace PhpLinq\Tests;
+namespace Light\Linq\Tests;
 
 use OutOfRangeException;
-use PhpLinq\Collections\Generic\GenericList;
-use PhpLinq\Collections\Generic\Queue;
-use PhpLinq\Collections\Generic\Stack;
-use PhpLinq\Enumerable;
+use Light\Linq\Collections\Generic\GenericList;
+use Light\Linq\Collections\Generic\Queue;
+use Light\Linq\Collections\Generic\Stack;
+use Light\Linq\Enumerable;
 use PHPUnit\Framework\TestCase;
 use UnderflowException;
 

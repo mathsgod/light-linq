@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace PhpLinq;
+namespace Light\Linq;
 
 use IteratorAggregate;
-use PhpLinq\Expression\Expression;
-use PhpLinq\Expression\ValueExpression;
+use Light\Linq\Expression\Expression;
+use Light\Linq\Expression\ValueExpression;
 use Traversable;
 
 /** @template T @extends IteratorAggregate<int, T> */

@@ -2,19 +2,19 @@
 
 declare(strict_types=1);
 
-namespace PhpLinq\Tests;
+namespace Light\Linq\Tests;
 
-use PhpLinq\Collections\Generic\Dictionary;
-use PhpLinq\Collections\Generic\GenericList;
-use PhpLinq\Collections\Generic\HashSet;
-use PhpLinq\Collections\Generic\ICollection;
-use PhpLinq\Collections\Generic\IDictionary;
-use PhpLinq\Collections\Generic\IList;
-use PhpLinq\Collections\Generic\IReadOnlyCollection;
-use PhpLinq\Collections\Generic\ISet;
-use PhpLinq\Collections\Generic\Queue;
-use PhpLinq\Collections\Generic\Stack;
-use PhpLinq\Enumerable;
+use Light\Linq\Collections\Generic\Dictionary;
+use Light\Linq\Collections\Generic\GenericList;
+use Light\Linq\Collections\Generic\HashSet;
+use Light\Linq\Collections\Generic\ICollection;
+use Light\Linq\Collections\Generic\IDictionary;
+use Light\Linq\Collections\Generic\IList;
+use Light\Linq\Collections\Generic\IReadOnlyCollection;
+use Light\Linq\Collections\Generic\ISet;
+use Light\Linq\Collections\Generic\Queue;
+use Light\Linq\Collections\Generic\Stack;
+use Light\Linq\Enumerable;
 use PHPUnit\Framework\TestCase;
 
 final class CollectionInterfacesTest extends TestCase

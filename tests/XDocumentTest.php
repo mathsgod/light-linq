@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace PhpLinq\Tests;
+namespace Light\Linq\Tests;
 
 use InvalidArgumentException;
-use PhpLinq\Xml\XAttribute;
-use PhpLinq\Xml\XDocument;
-use PhpLinq\Xml\XElement;
-use PhpLinq\Xml\XName;
+use Light\Linq\Xml\XAttribute;
+use Light\Linq\Xml\XDocument;
+use Light\Linq\Xml\XElement;
+use Light\Linq\Xml\XName;
 use PHPUnit\Framework\TestCase;
 
 final class XDocumentTest extends TestCase

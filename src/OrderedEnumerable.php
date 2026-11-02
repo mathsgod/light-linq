@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PhpLinq;
+namespace Light\Linq;
 
 /** @template T @extends Enumerable<T> @implements IOrderedEnumerable<T> */
 final class OrderedEnumerable extends Enumerable implements IOrderedEnumerable

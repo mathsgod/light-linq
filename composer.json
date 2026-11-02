@@ -4,15 +4,15 @@
     "type": "library",
     "license": "MIT",
     "require": {
-        "php": ">=8.2",
+        "php": ">=8.3",
         "ext-dom": "*"
     },
     "require-dev": {
-        "phpunit/phpunit": "^11.5"
+        "phpunit/phpunit": "^12.5"
     },
     "autoload": {
         "psr-4": {
-            "PhpLinq\\": "src/"
+            "Light\\Linq\\": "src/"
         }
     },
     "scripts": {

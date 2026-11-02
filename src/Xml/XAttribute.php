@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PhpLinq\Xml;
+namespace Light\Linq\Xml;
 
 use DOMAttr;
 

@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace PhpLinq\Tests;
+namespace Light\Linq\Tests;
 
-use PhpLinq\Enumerable;
-use PhpLinq\Expr;
-use PhpLinq\InMemoryQueryProvider;
-use PhpLinq\Queryable;
-use PhpLinq\Collections\Generic\EqualityComparer;
+use Light\Linq\Enumerable;
+use Light\Linq\Expr;
+use Light\Linq\InMemoryQueryProvider;
+use Light\Linq\Queryable;
+use Light\Linq\Collections\Generic\EqualityComparer;
 use PHPUnit\Framework\TestCase;
 use UnderflowException;
 use UnexpectedValueException;

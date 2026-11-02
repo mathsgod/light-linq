@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PhpLinq;
+namespace Light\Linq;
 
 /** @template T @extends IEnumerable<T> */
 interface IOrderedEnumerable extends IEnumerable

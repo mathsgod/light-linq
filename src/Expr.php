@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace PhpLinq;
+namespace Light\Linq;
 
-use PhpLinq\Expression\BinaryExpression;
-use PhpLinq\Expression\ConstantExpression;
-use PhpLinq\Expression\FieldExpression;
-use PhpLinq\Expression\LogicalExpression;
-use PhpLinq\Expression\ProjectionExpression;
-use PhpLinq\Expression\ValueExpression;
+use Light\Linq\Expression\BinaryExpression;
+use Light\Linq\Expression\ConstantExpression;
+use Light\Linq\Expression\FieldExpression;
+use Light\Linq\Expression\LogicalExpression;
+use Light\Linq\Expression\ProjectionExpression;
+use Light\Linq\Expression\ValueExpression;
 
 final class Expr
 {

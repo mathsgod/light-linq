@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
-namespace PhpLinq\Tests;
-use PhpLinq\{Expr, Grouping, InMemoryQueryProvider, Queryable};
+namespace Light\Linq\Tests;
+use Light\Linq\{Expr, Grouping, InMemoryQueryProvider, Queryable};
 use PHPUnit\Framework\TestCase;
 final class GroupingTest extends TestCase
 {

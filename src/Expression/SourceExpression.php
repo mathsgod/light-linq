@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PhpLinq\Expression;
+namespace Light\Linq\Expression;
 
 final readonly class SourceExpression implements Expression
 {

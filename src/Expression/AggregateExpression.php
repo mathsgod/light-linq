@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-namespace PhpLinq\Expression;
+namespace Light\Linq\Expression;
 final readonly class AggregateExpression implements ValueExpression
 {
     public function __construct(public string $function, public ?ValueExpression $operand = null)

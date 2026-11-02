@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace PhpLinq;
+namespace Light\Linq;
 
 use Closure;
-use PhpLinq\Collections\Generic\DefaultEqualityComparer;
-use PhpLinq\Collections\Generic\EqualityComparer;
-use PhpLinq\Collections\Generic\HashSet;
+use Light\Linq\Collections\Generic\DefaultEqualityComparer;
+use Light\Linq\Collections\Generic\EqualityComparer;
+use Light\Linq\Collections\Generic\HashSet;
 use Traversable;
 
 /** @template T @implements IEnumerable<T> */

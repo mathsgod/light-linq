@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace PhpLinq\Tests;
+namespace Light\Linq\Tests;
 
-use PhpLinq\Collections\Generic\Dictionary;
-use PhpLinq\Collections\Generic\EqualityComparer;
-use PhpLinq\Collections\Generic\KeyNotFoundException;
+use Light\Linq\Collections\Generic\Dictionary;
+use Light\Linq\Collections\Generic\EqualityComparer;
+use Light\Linq\Collections\Generic\KeyNotFoundException;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 

@@ -1,6 +1,6 @@
 # php-linq
 
-An experimental LINQ-style query library for PHP 8.2+. Unlike callback-only
+An experimental LINQ-style query library for PHP 8.3+. Unlike callback-only
 collection wrappers, a query is represented by an expression tree and executed
 by a query provider.
 
@@ -10,7 +10,7 @@ by a query provider.
 callbacks:
 
 ```php
-use PhpLinq\Enumerable;
+use Light\Linq\Enumerable;
 
 $names = Enumerable::from($users)
     ->where(fn (User $user): bool => $user->active)
@@ -47,12 +47,12 @@ first and continue with callback-based, in-memory operators.
 ## Generic collections
 
 Mutable collections modelled after `System.Collections.Generic` are available
-under `PhpLinq\\Collections\\Generic`:
+under `Light\Linq\\Collections\\Generic`:
 
 ```php
-use PhpLinq\Collections\Generic\GenericList;
-use PhpLinq\Collections\Generic\Queue;
-use PhpLinq\Collections\Generic\Stack;
+use Light\Linq\Collections\Generic\GenericList;
+use Light\Linq\Collections\Generic\Queue;
+use Light\Linq\Collections\Generic\Stack;
 
 $list = new GenericList([1, 2]);
 $list->add(3);
@@ -94,11 +94,11 @@ difference, subset/superset checks, overlap checks, and set equality.
 
 ## LINQ to XML
 
-The `PhpLinq\\Xml` namespace provides a DOMDocument-backed XML object model:
+The `Light\Linq\\Xml` namespace provides a DOMDocument-backed XML object model:
 
 ```php
-use PhpLinq\Xml\XDocument;
-use PhpLinq\Xml\XElement;
+use Light\Linq\Xml\XDocument;
+use Light\Linq\Xml\XElement;
 
 $document = XDocument::load('users.xml');
 
@@ -120,9 +120,9 @@ supported through `XName`. All XML sequence methods return lazy `IEnumerable`
 instances.
 
 ```php
-use PhpLinq\Expr;
-use PhpLinq\InMemoryQueryProvider;
-use PhpLinq\Queryable;
+use Light\Linq\Expr;
+use Light\Linq\InMemoryQueryProvider;
+use Light\Linq\Queryable;
 
 $provider = new InMemoryQueryProvider([
     'users' => [
@@ -168,7 +168,7 @@ Supported query operators: `where`, `select`, `orderBy`, `orderByDescending`,
 with object-key support and pluggable equality semantics:
 
 ```php
-use PhpLinq\Collections\Generic\Dictionary;
+use Light\Linq\Collections\Generic\Dictionary;
 
 /** @var Dictionary<string, int> $scores */
 $scores = new Dictionary();
@@ -189,7 +189,7 @@ SQL compilation, query plans and database dialects live in the separate
 by `PhpEntity\SqlQueryProvider`. This package supplies database-independent
 LINQ operators, expression trees and the `IQueryProvider` contract.
 
-When upgrading, replace `PhpLinq\Sql` imports with `PhpEntity\Sql` and add a
+When upgrading, replace `Light\Linq\Sql` imports with `PhpEntity\Sql` and add a
 `mathsgod/php-entity` dependency if you use SQL compilation or dialects.
 
 Install development dependencies and run the PHPUnit test suite with:
@@ -201,11 +201,11 @@ composer test
 
 ## Query provider contract
 
-`PhpLinq\IQueryProvider` is the provider interface owned by php-linq.
+`Light\Linq\IQueryProvider` is the provider interface owned by php-linq.
 `Queryable` depends on this interface; `InMemoryQueryProvider` implements it
 for iterable sources, and `PhpEntity\SqlQueryProvider` implements it for PDO
-execution in php-entity. The former interface name `PhpLinq\QueryProvider`
-has been renamed to `PhpLinq\IQueryProvider`; update custom providers and imports.
+execution in php-entity. The former interface name `Light\Linq\QueryProvider`
+has been renamed to `Light\Linq\IQueryProvider`; update custom providers and imports.
 
 ## Joining query sources
 
@@ -235,7 +235,7 @@ than scalar selections when composing subsequent joins.
 ### Grouping, aggregates and distinct values
 
 ```php
-use PhpLinq\Expr;
+use Light\Linq\Expr;
 
 $totals = $orders
     ->groupBy(Expr::field('CustomerId'))

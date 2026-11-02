@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace PhpLinq\Tests;
+namespace Light\Linq\Tests;
 
-use PhpLinq\Expr;
-use PhpLinq\InMemoryQueryProvider;
-use PhpLinq\Queryable;
+use Light\Linq\Expr;
+use Light\Linq\InMemoryQueryProvider;
+use Light\Linq\Queryable;
 use PHPUnit\Framework\TestCase;
 
 final class JoinTest extends TestCase

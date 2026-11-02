@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace PhpLinq;
+namespace Light\Linq;
 
-use PhpLinq\Expression\BinaryExpression;
-use PhpLinq\Expression\ConstantExpression;
-use PhpLinq\Expression\Expression;
-use PhpLinq\Expression\FieldExpression;
-use PhpLinq\Expression\LogicalExpression;
-use PhpLinq\Expression\MethodCallExpression;
-use PhpLinq\Expression\ProjectionExpression;
-use PhpLinq\Expression\SourceExpression;
-use PhpLinq\Expression\ValueExpression;
+use Light\Linq\Expression\BinaryExpression;
+use Light\Linq\Expression\ConstantExpression;
+use Light\Linq\Expression\Expression;
+use Light\Linq\Expression\FieldExpression;
+use Light\Linq\Expression\LogicalExpression;
+use Light\Linq\Expression\MethodCallExpression;
+use Light\Linq\Expression\ProjectionExpression;
+use Light\Linq\Expression\SourceExpression;
+use Light\Linq\Expression\ValueExpression;
 
 final class InMemoryQueryProvider implements IQueryProvider
 {
@@ -81,14 +81,14 @@ final class InMemoryQueryProvider implements IQueryProvider
             }
         }
     }
-    private function groupKey(\PhpLinq\Expression\GroupKeyExpression $expression, mixed $row): mixed
+    private function groupKey(\Light\Linq\Expression\GroupKeyExpression $expression, mixed $row): mixed
     {
         if (!$row instanceof Grouping) {
             throw new \LogicException('Group keys require a grouping.');
         }
         return $expression->member === null ? $row->key : $this->readField($row->key, $expression->member);
     }
-    private function aggregate(\PhpLinq\Expression\AggregateExpression $expression, mixed $row): mixed
+    private function aggregate(\Light\Linq\Expression\AggregateExpression $expression, mixed $row): mixed
     {
         if (!$row instanceof Grouping) {
             throw new \LogicException('Aggregates require a grouping.');
@@ -220,8 +220,8 @@ final class InMemoryQueryProvider implements IQueryProvider
     private function evaluate(ValueExpression $expression, mixed $row): mixed
     {
         return match (true) {
-            $expression instanceof \PhpLinq\Expression\GroupKeyExpression => $this->groupKey($expression, $row),
-            $expression instanceof \PhpLinq\Expression\AggregateExpression => $this->aggregate($expression, $row),
+            $expression instanceof \Light\Linq\Expression\GroupKeyExpression => $this->groupKey($expression, $row),
+            $expression instanceof \Light\Linq\Expression\AggregateExpression => $this->aggregate($expression, $row),
             $expression instanceof ConstantExpression => $expression->value,
             $expression instanceof FieldExpression => $this->readField($row, $expression->path),
             $expression instanceof BinaryExpression => $this->evaluateBinary($expression, $row),

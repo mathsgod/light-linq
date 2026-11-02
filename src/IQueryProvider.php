@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace PhpLinq;
+namespace Light\Linq;
 
-use PhpLinq\Expression\Expression;
+use Light\Linq\Expression\Expression;
 
 interface IQueryProvider
 {

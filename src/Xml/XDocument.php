@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace PhpLinq\Xml;
+namespace Light\Linq\Xml;
 
 use DOMDocument;
-use PhpLinq\Enumerable;
-use PhpLinq\IEnumerable;
+use Light\Linq\Enumerable;
+use Light\Linq\IEnumerable;
 
 final class XDocument
 {

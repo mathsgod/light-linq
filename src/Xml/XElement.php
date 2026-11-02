@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace PhpLinq\Xml;
+namespace Light\Linq\Xml;
 
 use DOMAttr;
 use DOMElement;
 use DOMNode;
-use PhpLinq\Enumerable;
-use PhpLinq\IEnumerable;
+use Light\Linq\Enumerable;
+use Light\Linq\IEnumerable;
 
 final class XElement extends XNode
 {

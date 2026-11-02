@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PhpLinq\Collections\Generic;
+namespace Light\Linq\Collections\Generic;
 
 /** @template T @implements EqualityComparer<T> */
 final class DefaultEqualityComparer implements EqualityComparer
