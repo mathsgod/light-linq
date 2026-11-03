@@ -1,5 +1,5 @@
 {
-    "name": "mathsgod/php-linq",
+    "name": "mathsgod/light-linq",
     "description": "A provider-based LINQ-style query library for PHP",
     "type": "library",
     "license": "MIT",

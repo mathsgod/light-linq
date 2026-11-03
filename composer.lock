@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "de299b3bc6b978cee6be797eb5948ea4",
+    "content-hash": "618d6d79fa7e71b61a6391c6162f84f2",
     "packages": [
         {
             "name": "mathsgod/light-collections",

@@ -7,7 +7,7 @@
 需要 PHP 8.3 或以上。在使用此函式庫的應用程式執行：
 
 ```sh
-composer require mathsgod/php-linq
+composer require mathsgod/light-linq
 ```
 
 若正在開發此 repository，於專案根目錄執行 `composer install`。
