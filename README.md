@@ -6,7 +6,7 @@ by a query provider.
 
 ## 使用文件
 
-繁體中文使用指南：[docs/README.md](docs/README.md)。包含安裝入門、Enumerable、分組與 join、Queryable／Expr、集合類別及 XML 範例。
+繁體中文使用指南：[docs/README.md](docs/README.md)。包含安裝入門、Enumerable、分組與 join、Queryable／Expr、集合類別範例；XML 文件已移至 light-xml。
 
 ## LINQ to Objects
 
@@ -142,32 +142,15 @@ IReadOnlyCollection<KeyValuePair<TKey, TValue>>
 set operations including union, intersection, difference, symmetric
 difference, subset/superset checks, overlap checks, and set equality.
 
-## LINQ to XML
+## LINQ to XML migration
 
-The `Light\Linq\\Xml` namespace provides a DOMDocument-backed XML object model:
+XML support now lives in the separate [mathsgod/php-xml](../light-xml/README.md)
+package. Install that package and replace `Light\Linq\Xml` imports with
+`Light\Xml\Linq`. The old XML classes are removed; php-linq no longer requires
+`ext-dom`. Existing XML querying APIs are available in php-xml together with
+XML construction, editing and saving. See the [XML querying guide](../light-xml/docs/xml.md).
 
-```php
-use Light\Linq\Xml\XDocument;
-use Light\Linq\Xml\XElement;
-
-$document = XDocument::load('users.xml');
-
-$names = $document
-    ->descendants('user')
-    ->where(fn (XElement $user): bool =>
-        $user->attribute('active')?->value() === 'true'
-    )
-    ->select(fn (XElement $user): ?string =>
-        $user->element('name')?->value()
-    )
-    ->toArray();
-```
-
-`XDocument` supports parsing, file loading, root access, descendant queries,
-and XML serialization. `XElement` provides direct-child and descendant element
-queries plus attribute access. Expanded names such as `{urn:people}user` are
-supported through `XName`. All XML sequence methods return lazy `IEnumerable`
-instances.
+## Provider-backed queries
 
 ```php
 use Light\Linq\Expr;

@@ -4,7 +4,7 @@
 
 ## 環境與安裝
 
-需要 PHP 8.3 或以上及 `ext-dom`。在使用此函式庫的應用程式執行：
+需要 PHP 8.3 或以上。在使用此函式庫的應用程式執行：
 
 ```sh
 composer require mathsgod/php-linq
