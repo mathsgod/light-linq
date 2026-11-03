@@ -74,6 +74,69 @@ class Enumerable implements IEnumerable
         });
     }
 
+    public function groupBy(callable $keySelector, ?EqualityComparer $comparer = null): IEnumerable
+    {
+        $source = $this;
+        return new self(static function () use ($source, $keySelector, $comparer): iterable {
+            [$groups] = self::groupLookup($source, $keySelector, $comparer ?? new DefaultEqualityComparer());
+            foreach ($groups as $group) {
+                yield new Grouping($group['key'], $group['items']);
+            }
+        });
+    }
+
+    public function groupJoin(
+        iterable $inner,
+        callable $outerKeySelector,
+        callable $innerKeySelector,
+        callable $resultSelector,
+        ?EqualityComparer $comparer = null,
+    ): IEnumerable {
+        $source = $this;
+        return new self(static function () use (
+            $source, $inner, $outerKeySelector, $innerKeySelector, $resultSelector, $comparer,
+        ): iterable {
+            $comparer ??= new DefaultEqualityComparer();
+            $groups = $buckets = null;
+            foreach ($source as $outerItem) {
+                if ($groups === null) {
+                    [$groups, $buckets] = self::groupLookup($inner, $innerKeySelector, $comparer);
+                }
+                $key = $outerKeySelector($outerItem);
+                $matches = [];
+                foreach ($buckets[$comparer->hash($key)] ?? [] as $index) {
+                    if ($comparer->equals($key, $groups[$index]['key'])) {
+                        $matches = $groups[$index]['items'];
+                        break;
+                    }
+                }
+                yield $resultSelector($outerItem, self::from($matches));
+            }
+        });
+    }
+
+    /**
+     * @return array{list<array{key: mixed, items: list<mixed>}>, array<string, list<int>>}
+     */
+    private static function groupLookup(iterable $source, callable $keySelector, EqualityComparer $comparer): array
+    {
+        $groups = [];
+        $buckets = [];
+        foreach ($source as $item) {
+            $key = $keySelector($item);
+            $hash = $comparer->hash($key);
+            foreach ($buckets[$hash] ?? [] as $index) {
+                if ($comparer->equals($groups[$index]['key'], $key)) {
+                    $groups[$index]['items'][] = $item;
+                    continue 2;
+                }
+            }
+            $buckets[$hash][] = count($groups);
+            $groups[] = ['key' => $key, 'items' => [$item]];
+        }
+        return [$groups, $buckets];
+    }
+
     public function orderBy(callable $keySelector): IOrderedEnumerable
     {
         return new OrderedEnumerable($this, [[$keySelector, false]]);

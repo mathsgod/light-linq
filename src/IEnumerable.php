@@ -21,6 +21,33 @@ interface IEnumerable extends IteratorAggregate, Countable
     /** @template TResult @param callable(T): iterable<TResult> $selector @return IEnumerable<TResult> */
     public function selectMany(callable $selector): IEnumerable;
 
+    /**
+     * @template TKey
+     * @param callable(T): TKey $keySelector
+     * @param EqualityComparer<TKey>|null $comparer
+     * @return IEnumerable<Grouping>
+     */
+    public function groupBy(callable $keySelector, ?EqualityComparer $comparer = null): IEnumerable;
+
+    /**
+     * @template TInner
+     * @template TKey
+     * @template TResult
+     * @param iterable<TInner> $inner
+     * @param callable(T): TKey $outerKeySelector
+     * @param callable(TInner): TKey $innerKeySelector
+     * @param callable(T, IEnumerable<TInner>): TResult $resultSelector
+     * @param EqualityComparer<TKey>|null $comparer
+     * @return IEnumerable<TResult>
+     */
+    public function groupJoin(
+        iterable $inner,
+        callable $outerKeySelector,
+        callable $innerKeySelector,
+        callable $resultSelector,
+        ?EqualityComparer $comparer = null,
+    ): IEnumerable;
+
     /** @param callable(T): mixed $keySelector @return IOrderedEnumerable<T> */
     public function orderBy(callable $keySelector): IOrderedEnumerable;
 

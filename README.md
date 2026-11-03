@@ -4,6 +4,10 @@ An experimental LINQ-style query library for PHP 8.3+. Unlike callback-only
 collection wrappers, a query is represented by an expression tree and executed
 by a query provider.
 
+## 使用文件
+
+繁體中文使用指南：[docs/README.md](docs/README.md)。包含安裝入門、Enumerable、分組與 join、Queryable／Expr、集合類別及 XML 範例。
+
 ## LINQ to Objects
 
 `Enumerable` provides lazy, generator-based processing with ordinary PHP
@@ -43,6 +47,52 @@ $summaries = Enumerable::from($users)->join(
 
 Call `asEnumerable()` on an `IQueryable` to execute the provider-backed part
 first and continue with callback-based, in-memory operators.
+
+### Grouping and grouped joins
+
+`Enumerable::groupBy($keySelector, $comparer = null)` returns iterable,
+countable `Grouping` objects with public `key` and `items` properties:
+
+```php
+$groups = Enumerable::from($orders)
+    ->groupBy(fn (array $order) => $order['customerId']);
+
+foreach ($groups as $group) {
+    $customerId = $group->key;
+    $total = Enumerable::from($group)->sum(fn (array $order) => $order['total']);
+}
+```
+
+Groups appear in first-key-occurrence order, and elements within each group
+retain source order. Execution is deferred; the source is buffered completely
+before the first group is returned. An empty source produces no groups.
+
+`groupJoin()` produces one result per outer element, including duplicates and
+elements with no matches. Its result selector receives the outer element and
+an `IEnumerable` of matching inner elements, in inner-source order:
+
+```php
+$customersWithOrders = Enumerable::from($customers)->groupJoin(
+    $orders,
+    fn (array $customer) => $customer['id'],
+    fn (array $order) => $order['customerId'],
+    fn (array $customer, $matches) => [
+        'customer' => $customer,
+        'orders' => $matches->toArray(),
+    ],
+);
+```
+
+Unmatched elements receive an empty sequence. Execution is deferred; the inner
+source is indexed once per enumeration, when the first outer element is read,
+and outer elements are streamed. Empty outer sources do not read the inner.
+Both operators accept an optional `EqualityComparer` (the final argument).
+Default key comparison follows the existing Enumerable equality rules: types
+are distinct, arrays compare strictly and objects compare by identity. Null
+keys form a group and match null keys in grouped joins, as in Enumerable
+`join()`; provider-backed SQL joins have different null semantics.
+Re-enumerating rebuilds the groups/index and requires replayable sources;
+use `Enumerable::defer()` to create fresh generators when needed.
 
 ## Generic collections
 
