@@ -7,6 +7,7 @@ namespace Light\Linq;
 use Countable;
 use IteratorAggregate;
 use Light\Linq\Collections\Generic\EqualityComparer;
+use Light\Linq\Collections\Generic\KeyValuePair;
 use Traversable;
 
 /** @template T @extends IteratorAggregate<int, T> */
@@ -67,6 +68,9 @@ interface IEnumerable extends IteratorAggregate, Countable
     public function takeWhile(callable $predicate): IEnumerable;
 
     /** @return IEnumerable<T> */
+    public function skipLast(int $count): IEnumerable;
+
+    /** @return IEnumerable<T> */
     public function takeLast(int $count): IEnumerable;
 
     /** @param (callable(T): mixed)|null $keySelector @return IEnumerable<T> */
@@ -80,6 +84,27 @@ interface IEnumerable extends IteratorAggregate, Countable
 
     /** @param iterable<T> $other @return IEnumerable<T> */
     public function concat(iterable $other): IEnumerable;
+
+    /** @param T|null $default @return IEnumerable<T|null> */
+    public function defaultIfEmpty(mixed $default = null): IEnumerable;
+
+    /**
+     * @template TSecond
+     * @template TResult
+     * @param iterable<TSecond> $second
+     * @param callable(T, TSecond): TResult $resultSelector
+     * @return IEnumerable<TResult>
+     */
+    public function zip(iterable $second, callable $resultSelector): IEnumerable;
+
+    /** @param iterable<T> $second @param EqualityComparer<T>|null $comparer */
+    public function sequenceEqual(iterable $second, ?EqualityComparer $comparer = null): bool;
+
+    /** @return T @throws \OutOfBoundsException */
+    public function elementAt(int $index): mixed;
+
+    /** @param T|null $default @return T|null */
+    public function elementAtOrDefault(int $index, mixed $default = null): mixed;
 
     /** @return IEnumerable<T> */
     public function reverse(): IEnumerable;
@@ -143,6 +168,57 @@ interface IEnumerable extends IteratorAggregate, Countable
 
     /** @param iterable<T> $second @return IEnumerable<T> */
     public function union(iterable $second, ?EqualityComparer $comparer = null): IEnumerable;
+
+    /**
+     * @template TKey
+     * @param iterable<TKey> $second Keys to exclude.
+     * @param callable(T): TKey $keySelector
+     * @param EqualityComparer<TKey>|null $comparer
+     * @return IEnumerable<T>
+     */
+    public function exceptBy(iterable $second, callable $keySelector, ?EqualityComparer $comparer = null): IEnumerable;
+
+    /**
+     * @template TKey
+     * @param iterable<TKey> $second Keys to retain.
+     * @param callable(T): TKey $keySelector
+     * @param EqualityComparer<TKey>|null $comparer
+     * @return IEnumerable<T>
+     */
+    public function intersectBy(iterable $second, callable $keySelector, ?EqualityComparer $comparer = null): IEnumerable;
+
+    /**
+     * @template TKey
+     * @param iterable<T> $second Elements to combine.
+     * @param callable(T): TKey $keySelector
+     * @param EqualityComparer<TKey>|null $comparer
+     * @return IEnumerable<T>
+     */
+    public function unionBy(iterable $second, callable $keySelector, ?EqualityComparer $comparer = null): IEnumerable;
+
+    /**
+     * @template TKey
+     * @param callable(T): TKey $keySelector
+     * @param EqualityComparer<TKey>|null $comparer
+     * @return IEnumerable<KeyValuePair<TKey, int>>
+     */
+    public function countBy(callable $keySelector, ?EqualityComparer $comparer = null): IEnumerable;
+
+    /**
+     * @template TKey
+     * @template TAccumulate
+     * @param callable(T): TKey $keySelector
+     * @param TAccumulate $seed
+     * @param callable(TAccumulate, T): TAccumulate $accumulator
+     * @param EqualityComparer<TKey>|null $comparer
+     * @return IEnumerable<KeyValuePair<TKey, TAccumulate>>
+     */
+    public function aggregateBy(
+        callable $keySelector,
+        mixed $seed,
+        callable $accumulator,
+        ?EqualityComparer $comparer = null,
+    ): IEnumerable;
 
     /** @return IEnumerable<T> */
     public function shuffle(): IEnumerable;

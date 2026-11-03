@@ -25,7 +25,7 @@ $names = Enumerable::from($users)
 ```
 
 Streaming operators include `where`, `select`, `selectMany`, `skip`, `take`,
-`skipWhile`, `takeWhile`, `distinct`, `append`, `prepend`, `concat`, and
+`skipWhile`, `takeWhile`, `skipLast`, `distinct`, `append`, `prepend`, `concat`, and
 `chunk`. Operators which require a complete view of the sequence, such as
 `orderBy`, `reverse`, and `takeLast`, buffer their input when enumerated.
 
@@ -93,6 +93,93 @@ keys form a group and match null keys in grouped joins, as in Enumerable
 `join()`; provider-backed SQL joins have different null semantics.
 Re-enumerating rebuilds the groups/index and requires replayable sources;
 use `Enumerable::defer()` to create fresh generators when needed.
+
+### Skipping trailing elements
+
+```php
+$trimmed = Enumerable::range(1, 5)->skipLast(2)->toArray(); // [1, 2, 3]
+```
+
+`skipLast($count)` streams with a queue holding at most `$count + 1` elements.
+It reads ahead by `$count` elements before yielding results. Zero preserves the
+whole sequence; a count at least as large as the source length produces an empty
+result. Negative counts throw `InvalidArgumentException` immediately.
+
+### Creating sequences
+
+```php
+$empty = Enumerable::empty()->toArray(); // []
+$integers = Enumerable::range(5, 3)->toArray(); // [5, 6, 7]
+$repeated = Enumerable::repeat('A', 3)->toArray(); // ['A', 'A', 'A']
+```
+
+`range($start, $count)` takes a count, not an end value. Both `range()` and
+`repeat()` generate elements lazily and support repeated enumeration. A zero
+count returns an empty sequence; a negative count throws
+`InvalidArgumentException` immediately. Ranges exceeding `PHP_INT_MAX` are
+also rejected immediately. `repeat()` reuses the supplied value, including
+object identity; it does not clone objects.
+
+### Sequence defaults, indexing, pairing and equality
+
+```php
+$fallback = Enumerable::from([])->defaultIfEmpty(0)->toArray(); // [0]
+$names = Enumerable::from(['Ada', 'Bob', 'Cat']);
+$second = $names->elementAt(1); // 'Bob'
+$missing = $names->elementAtOrDefault(5, default: 'Unknown'); // 'Unknown'
+$pairs = $names->zip([90, 80], fn ($name, $score) => [$name, $score])->toArray();
+// [['Ada', 90], ['Bob', 80]]
+$equal = Enumerable::from([1, 2])->sequenceEqual([1, 2]); // true
+```
+
+`defaultIfEmpty()` supplies one fallback element only when the source is empty;
+its default fallback is null. `elementAt()` uses a zero-based sequence position,
+ignoring source keys, and throws `OutOfBoundsException` for a negative or missing
+index. `elementAtOrDefault()` returns its default instead, including for negative
+indices. Actual null and false elements are preserved.
+
+`zip()` is deferred and requires a result selector; it stops at the shorter
+source. `sequenceEqual()` executes immediately and checks values, order and
+length using the existing default equality comparer, or an optional
+`EqualityComparer`. These methods operate on `Enumerable`; use `asEnumerable()`
+to continue a provider-backed query with them.
+
+### Key-based set operations and aggregation
+
+```php
+$users = Enumerable::from([
+    ['id' => 1, 'city' => 'HK'],
+    ['id' => 2, 'city' => 'Tokyo'],
+    ['id' => 3, 'city' => 'HK'],
+]);
+$key = fn ($user) => $user['id'];
+$excluded = $users->exceptBy([1, 3], $key)->toArray(); // user 2
+$included = $users->intersectBy([1, 3], $key)->toArray(); // users 1 and 3
+$merged = $users->unionBy([['id' => 4, 'city' => 'HK']], $key)->toArray();
+
+$counts = $users->countBy(fn ($user) => $user['city'])
+    ->select(fn ($pair) => [$pair->key, $pair->value])->toArray();
+// [['HK', 2], ['Tokyo', 1]]
+$totals = $users->aggregateBy(
+    fn ($user) => $user['city'],
+    0,
+    fn ($sum, $user) => $sum + $user['id'],
+)->select(fn ($pair) => [$pair->key, $pair->value])->toArray();
+// [['HK', 4], ['Tokyo', 2]]
+```
+
+`exceptBy()` and `intersectBy()` take a second sequence of **keys**;
+`unionBy()` takes a second sequence of **elements**. All three keep at most
+one element per key, preserving the first occurrence and source order.
+
+`countBy()` and `aggregateBy()` return `KeyValuePair` sequences in first-key
+order, preserving key types without PHP array-key conversion. They defer
+execution but consume the entire source before returning the first result,
+retaining one accumulator per key. Empty sources return no pairs.
+`aggregateBy()` accepts a seed value, not a seed factory; object seeds are
+shared unless the accumulator creates new objects instead of mutating them.
+All five operators accept an optional final `EqualityComparer` argument.
+See the [Enumerable guide](docs/enumerable.md) for execution and equality rules.
 
 ## Generic collections
 

@@ -8,6 +8,7 @@ use Closure;
 use Light\Linq\Collections\Generic\DefaultEqualityComparer;
 use Light\Linq\Collections\Generic\EqualityComparer;
 use Light\Linq\Collections\Generic\HashSet;
+use Light\Linq\Collections\Generic\KeyValuePair;
 use Traversable;
 
 /** @template T @implements IEnumerable<T> */
@@ -35,6 +36,37 @@ class Enumerable implements IEnumerable
     public static function defer(callable $factory): IEnumerable
     {
         return new self($factory);
+    }
+
+    /** @return IEnumerable<never> */
+    public static function empty(): IEnumerable
+    {
+        return new self(static fn (): iterable => []);
+    }
+
+    /** @return IEnumerable<int> */
+    public static function range(int $start, int $count): IEnumerable
+    {
+        self::assertNonNegative($count);
+        if ($count > 0 && $start > PHP_INT_MAX - ($count - 1)) {
+            throw new \InvalidArgumentException('The range exceeds the maximum PHP integer.');
+        }
+        return new self(static function () use ($start, $count): iterable {
+            for ($offset = 0; $offset < $count; ++$offset) {
+                yield $start + $offset;
+            }
+        });
+    }
+
+    /** @template TElement @param TElement $value @return IEnumerable<TElement> */
+    public static function repeat(mixed $value, int $count): IEnumerable
+    {
+        self::assertNonNegative($count);
+        return new self(static function () use ($value, $count): iterable {
+            for ($index = 0; $index < $count; ++$index) {
+                yield $value;
+            }
+        });
     }
 
     public function getIterator(): Traversable
@@ -206,6 +238,25 @@ class Enumerable implements IEnumerable
         });
     }
 
+    public function skipLast(int $count): IEnumerable
+    {
+        self::assertNonNegative($count);
+        $source = $this;
+        return new self(static function () use ($source, $count): iterable {
+            $buffer = new \SplQueue();
+            foreach ($source as $item) {
+                if ($count === 0) {
+                    yield $item;
+                    continue;
+                }
+                $buffer->enqueue($item);
+                if ($buffer->count() > $count) {
+                    yield $buffer->dequeue();
+                }
+            }
+        });
+    }
+
     public function takeLast(int $count): IEnumerable
     {
         self::assertNonNegative($count);
@@ -269,6 +320,79 @@ class Enumerable implements IEnumerable
             yield from $source;
             yield from $other;
         });
+    }
+
+    public function defaultIfEmpty(mixed $default = null): IEnumerable
+    {
+        $source = $this;
+        return new self(static function () use ($source, $default): iterable {
+            $found = false;
+            foreach ($source as $item) {
+                $found = true;
+                yield $item;
+            }
+            if (!$found) {
+                yield $default;
+            }
+        });
+    }
+
+    public function zip(iterable $second, callable $resultSelector): IEnumerable
+    {
+        $source = $this;
+        return new self(static function () use ($source, $second, $resultSelector): iterable {
+            $iterator = null;
+            foreach ($source as $item) {
+                if ($iterator === null) {
+                    $iterator = new \IteratorIterator(self::from($second)->getIterator());
+                    $iterator->rewind();
+                } else {
+                    $iterator->next();
+                }
+                if (!$iterator->valid()) {
+                    return;
+                }
+                yield $resultSelector($item, $iterator->current());
+            }
+        });
+    }
+
+    public function sequenceEqual(iterable $second, ?EqualityComparer $comparer = null): bool
+    {
+        $comparer ??= new DefaultEqualityComparer();
+        $iterator = new \IteratorIterator(self::from($second)->getIterator());
+        $iterator->rewind();
+        foreach ($this as $item) {
+            if (!$iterator->valid() || !$comparer->equals($item, $iterator->current())) {
+                return false;
+            }
+            $iterator->next();
+        }
+        return !$iterator->valid();
+    }
+
+    public function elementAt(int $index): mixed
+    {
+        $sentinel = new \stdClass();
+        $value = $this->elementAtOrDefault($index, $sentinel);
+        if ($value === $sentinel) {
+            throw new \OutOfBoundsException('The index is outside the sequence.');
+        }
+        return $value;
+    }
+
+    public function elementAtOrDefault(int $index, mixed $default = null): mixed
+    {
+        if ($index < 0) {
+            return $default;
+        }
+        $position = 0;
+        foreach ($this as $item) {
+            if ($position++ === $index) {
+                return $item;
+            }
+        }
+        return $default;
     }
 
     public function reverse(): IEnumerable
@@ -486,6 +610,81 @@ class Enumerable implements IEnumerable
                         yield $item;
                     }
                 }
+            }
+        });
+    }
+
+    public function exceptBy(iterable $second, callable $keySelector, ?EqualityComparer $comparer = null): IEnumerable
+    {
+        $source = $this;
+        return new self(static function () use ($source, $second, $keySelector, $comparer): iterable {
+            $excluded = new HashSet($second, $comparer);
+            foreach ($source as $item) {
+                if ($excluded->tryAdd($keySelector($item))) {
+                    yield $item;
+                }
+            }
+        });
+    }
+
+    public function intersectBy(iterable $second, callable $keySelector, ?EqualityComparer $comparer = null): IEnumerable
+    {
+        $source = $this;
+        return new self(static function () use ($source, $second, $keySelector, $comparer): iterable {
+            $remaining = new HashSet($second, $comparer);
+            foreach ($source as $item) {
+                if ($remaining->remove($keySelector($item))) {
+                    yield $item;
+                }
+            }
+        });
+    }
+
+    public function unionBy(iterable $second, callable $keySelector, ?EqualityComparer $comparer = null): IEnumerable
+    {
+        $source = $this;
+        return new self(static function () use ($source, $second, $keySelector, $comparer): iterable {
+            $seen = new HashSet([], $comparer);
+            foreach ([$source, $second] as $sequence) {
+                foreach ($sequence as $item) {
+                    if ($seen->tryAdd($keySelector($item))) {
+                        yield $item;
+                    }
+                }
+            }
+        });
+    }
+
+    public function countBy(callable $keySelector, ?EqualityComparer $comparer = null): IEnumerable
+    {
+        return $this->aggregateBy($keySelector, 0, static fn (int $count, mixed $item): int => $count + 1, $comparer);
+    }
+
+    public function aggregateBy(
+        callable $keySelector,
+        mixed $seed,
+        callable $accumulator,
+        ?EqualityComparer $comparer = null,
+    ): IEnumerable {
+        $source = $this;
+        return new self(static function () use ($source, $keySelector, $seed, $accumulator, $comparer): iterable {
+            $comparer ??= new DefaultEqualityComparer();
+            $groups = [];
+            $buckets = [];
+            foreach ($source as $item) {
+                $key = $keySelector($item);
+                $hash = $comparer->hash($key);
+                foreach ($buckets[$hash] ?? [] as $index) {
+                    if ($comparer->equals($groups[$index]['key'], $key)) {
+                        $groups[$index]['value'] = $accumulator($groups[$index]['value'], $item);
+                        continue 2;
+                    }
+                }
+                $buckets[$hash][] = count($groups);
+                $groups[] = ['key' => $key, 'value' => $accumulator($seed, $item)];
+            }
+            foreach ($groups as $group) {
+                yield new KeyValuePair($group['key'], $group['value']);
             }
         });
     }
