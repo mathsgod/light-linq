@@ -1,4 +1,4 @@
-# php-linq
+# light-linq
 
 An experimental LINQ-style query library for PHP 8.3+. Unlike callback-only
 collection wrappers, a query is represented by an expression tree and executed
@@ -225,7 +225,7 @@ See the [Enumerable guide](docs/enumerable.md) for execution and equality rules.
 ## Generic collections
 
 Collection types now live in the standalone [mathsgod/light-collections](https://github.com/mathsgod/light-collections)
-package under `Light\Collections\Generic`. php-linq requires `^1.0` of this package;
+package under `Light\Collections\Generic`. light-linq requires `^1.0` of this package;
 collections do not depend on LINQ. Replace old `Light\Linq\Collections\Generic`
 imports with `Light\Collections\Generic`.
 
@@ -278,7 +278,7 @@ See the [Lookup guide](docs/enumerable.md#tolookup建立唯讀分組索引).
 
 XML support now lives in the separate [mathsgod/php-xml](https://github.com/mathsgod/light-xml)
 package. Install that package and replace `Light\Linq\Xml` imports with
-`Light\Xml\Linq`. The old XML classes are removed; php-linq no longer requires
+`Light\Xml\Linq`. The old XML classes are removed; light-linq no longer requires
 `ext-dom`. Existing XML querying APIs are available in php-xml together with
 XML construction, editing and saving. See the [XML querying guide](https://github.com/mathsgod/light-xml/blob/main/docs/xml.md).
 
@@ -366,7 +366,7 @@ composer test
 
 ## Query provider contract
 
-`Light\Linq\IQueryProvider` is the provider interface owned by php-linq.
+`Light\Linq\IQueryProvider` is the provider interface owned by light-linq.
 `Queryable` depends on this interface; `InMemoryQueryProvider` implements it
 for iterable sources, and `PhpEntity\SqlQueryProvider` implements it for PDO
 execution in php-entity. The former interface name `Light\Linq\QueryProvider`
