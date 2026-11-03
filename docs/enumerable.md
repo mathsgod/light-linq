@@ -185,6 +185,14 @@ $byCity = $rows->distinct(fn ($row) => $row['city'])->toArray();
 
 `concat()` 保留重複值；`union()`、`intersect()`、`except()` 移除重複結果。後三者接受可選 `EqualityComparer`；`distinct()` 接受的是 key selector。預設比較區分 PHP 型別，物件以 identity 比較。操作的先後次序會影響結果，例如先 `take()` 再排序只會排序已取出的資料。
 
+`distinct()` 使用 light-collections 的 `HashSet` 建立已見 key 的 hash lookup，
+保留每個 key 首次出現的原元素及順序，並支援延遲、串流執行。
+預設採用 `DefaultEqualityComparer`，因此重複 NaN 視為相等，正負浮點零亦視為相等；
+整數 `0` 和浮點 `0.0` 仍然不同。hash 相同時仍會檢查 equality，不會直接合併不同 key。
+一般情況去重時間約為 O(n)，額外空間為 O(k)（k 為不同 key 數目），
+大量 hash collision 時仍可能退化。每次列舉會重新建立 lookup。
+
+
 ## 按 key 做集合運算
 
 ```php

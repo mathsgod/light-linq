@@ -104,3 +104,51 @@ $letters = Enumerable::from(['A', 'b', 'a'])
 ```
 
 這個 comparer 只供字串 key 使用。相等的 key 必須有相同 hash；不同 key 可以有相同 hash，函式庫會再用 `equals()` 分辨。
+
+
+## leftJoin 與 rightJoin：保留未匹配資料
+
+```php
+$users = Enumerable::from([
+    ['id' => 1, 'name' => 'Ada'],
+    ['id' => 2, 'name' => 'Bob'],
+]);
+$orders = [
+    ['id' => 101, 'userId' => 1],
+    ['id' => 102, 'userId' => 3],
+];
+$left = $users->leftJoin(
+    $orders,
+    fn ($user) => $user['id'],
+    fn ($order) => $order['userId'],
+    fn ($user, $order) => ['name' => $user['name'], 'orderId' => $order['id'] ?? null],
+)->toArray();
+// [['name' => 'Ada', 'orderId' => 101], ['name' => 'Bob', 'orderId' => null]]
+
+$right = $users->rightJoin(
+    $orders,
+    fn ($user) => $user['id'],
+    fn ($order) => $order['userId'],
+    fn ($user, $order) => ['name' => $user['name'] ?? null, 'orderId' => $order['id']],
+)->toArray();
+// [['name' => 'Ada', 'orderId' => 101], ['name' => null, 'orderId' => 102]]
+```
+
+兩者簽名均為 `($inner, $outerKeySelector, $innerKeySelector, $resultSelector, $comparer = null)`。
+左邊是呼叫方法的 Enumerable，右邊是 `$inner`；即使是 `rightJoin()`，
+result selector 的參數順序亦固定為 `(左邊元素, 右邊元素)`。
+未匹配的一邊傳入 null，callback 應接受 nullable 值。
+
+`leftJoin()` 依左邊來源順序輸出；每筆左邊元素的匹配依右邊來源順序輸出。
+`rightJoin()` 依右邊來源順序輸出；每筆右邊元素的匹配依左邊來源順序輸出。
+重複 key 不會去重，一筆匹配多筆會產生多個結果；未匹配時只產生一個結果。
+來源 iterator keys 不參與配對。
+
+操作均延遲執行。leftJoin 首次讀取結果時緩衝右邊，之後串流讀取左邊；
+rightJoin 緩衝左邊，串流讀取右邊。需要保留的一邊為空時，不讀取另一邊或呼叫 selector。
+緩衝每次列舉重新建立，因此重複執行需要可重播來源；Generator 可用 `Enumerable::defer()` 建立。
+來源、比較器及 selector 的例外會直接傳出。
+
+相等規則沿用 Enumerable 的 `join()`／`groupJoin()`，可傳入 `EqualityComparer`。
+預設區分 PHP 型別，array 嚴格相等，物件依 identity 比較；null key 可以匹配 null，
+與 Queryable 關聯式 join 的 null 規則不同。不同 key 的 hash collision 會再用 `equals()` 分辨。

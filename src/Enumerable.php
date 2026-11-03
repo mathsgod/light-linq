@@ -283,16 +283,11 @@ class Enumerable implements IEnumerable
         $source = $this;
         $keySelector ??= static fn (mixed $item): mixed => $item;
         return new self(static function () use ($source, $keySelector): iterable {
-            $seen = [];
+            $seen = new HashSet();
             foreach ($source as $item) {
-                $key = $keySelector($item);
-                foreach ($seen as $existing) {
-                    if ($existing === $key) {
-                        continue 2;
-                    }
+                if ($seen->tryAdd($keySelector($item))) {
+                    yield $item;
                 }
-                $seen[] = $key;
-                yield $item;
             }
         });
     }
@@ -732,6 +727,61 @@ class Enumerable implements IEnumerable
                 }
             }
         });
+    }
+
+    /**
+     * @template TInner
+     * @template TKey
+     * @template TResult
+     * @param iterable<TInner> $inner
+     * @param callable(T): TKey $outerKeySelector
+     * @param callable(TInner): TKey $innerKeySelector
+     * @param callable(T, TInner|null): TResult $resultSelector
+     * @param EqualityComparer<TKey>|null $comparer
+     * @return IEnumerable<TResult>
+     */
+    public function leftJoin(
+        iterable $inner,
+        callable $outerKeySelector,
+        callable $innerKeySelector,
+        callable $resultSelector,
+        ?EqualityComparer $comparer = null,
+    ): IEnumerable {
+        return $this->groupJoin(
+            $inner,
+            $outerKeySelector,
+            $innerKeySelector,
+            static fn ($outer, IEnumerable $matches): IEnumerable => $matches->defaultIfEmpty()
+                ->select(static fn ($item) => $resultSelector($outer, $item)),
+            $comparer,
+        )->selectMany(static fn (IEnumerable $matches): iterable => $matches);
+    }
+
+    /**
+     * @template TInner
+     * @template TKey
+     * @template TResult
+     * @param iterable<TInner> $inner
+     * @param callable(T): TKey $outerKeySelector
+     * @param callable(TInner): TKey $innerKeySelector
+     * @param callable(T|null, TInner): TResult $resultSelector
+     * @param EqualityComparer<TKey>|null $comparer
+     * @return IEnumerable<TResult>
+     */
+    public function rightJoin(
+        iterable $inner,
+        callable $outerKeySelector,
+        callable $innerKeySelector,
+        callable $resultSelector,
+        ?EqualityComparer $comparer = null,
+    ): IEnumerable {
+        return self::from($inner)->leftJoin(
+            $this,
+            $innerKeySelector,
+            $outerKeySelector,
+            static fn ($right, $left) => $resultSelector($left, $right),
+            $comparer,
+        );
     }
 
     public function aggregate(callable $accumulator, mixed $seed = null): mixed

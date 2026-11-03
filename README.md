@@ -48,6 +48,12 @@ $summaries = Enumerable::from($users)->join(
 Call `asEnumerable()` on an `IQueryable` to execute the provider-backed part
 first and continue with callback-based, in-memory operators.
 
+`leftJoin()` retains every left element, supplying null for an unmatched right
+element. `rightJoin()` retains every right element, supplying null for an
+unmatched left element. Both accept the same selectors and optional
+`EqualityComparer` as `join()`; the result selector always receives left then
+right. See the [outer join examples](docs/grouping-and-joins.md#leftjoin-與-rightjoin保留未匹配資料).
+
 ### Grouping and grouped joins
 
 `Enumerable::groupBy($keySelector, $comparer = null)` returns iterable,

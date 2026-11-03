@@ -245,6 +245,44 @@ interface IEnumerable extends IteratorAggregate, Countable
         ?EqualityComparer $comparer = null,
     ): IEnumerable;
 
+    /**
+     * @template TInner
+     * @template TKey
+     * @template TResult
+     * @param iterable<TInner> $inner
+     * @param callable(T): TKey $outerKeySelector
+     * @param callable(TInner): TKey $innerKeySelector
+     * @param callable(T, TInner|null): TResult $resultSelector
+     * @param EqualityComparer<TKey>|null $comparer
+     * @return IEnumerable<TResult>
+     */
+    public function leftJoin(
+        iterable $inner,
+        callable $outerKeySelector,
+        callable $innerKeySelector,
+        callable $resultSelector,
+        ?EqualityComparer $comparer = null,
+    ): IEnumerable;
+
+    /**
+     * @template TInner
+     * @template TKey
+     * @template TResult
+     * @param iterable<TInner> $inner
+     * @param callable(T): TKey $outerKeySelector
+     * @param callable(TInner): TKey $innerKeySelector
+     * @param callable(T|null, TInner): TResult $resultSelector
+     * @param EqualityComparer<TKey>|null $comparer
+     * @return IEnumerable<TResult>
+     */
+    public function rightJoin(
+        iterable $inner,
+        callable $outerKeySelector,
+        callable $innerKeySelector,
+        callable $resultSelector,
+        ?EqualityComparer $comparer = null,
+    ): IEnumerable;
+
     /** @param callable(mixed, T): mixed $accumulator */
     public function aggregate(callable $accumulator, mixed $seed = null): mixed;
 
