@@ -321,7 +321,7 @@ $summaries = $users->select(Expr::projection([
 they contain only one member.
 
 The expression tree is provider-independent. `InMemoryQueryProvider` executes
-it against arrays or other iterables; the SQL provider in `mathsgod/php-entity`
+it against arrays or other iterables; the SQL provider in `mathsgod/light-entity`
 translates the same nodes into parameterized SQL.
 
 Supported query operators: `where`, `select`, `orderBy`, `orderByDescending`,
@@ -350,12 +350,12 @@ integer and string iterator-key types.
 ## SQL compilation
 
 SQL compilation, query plans and database dialects live in the separate
-`mathsgod/php-entity` package under `PhpEntity\Sql`. PDO execution is provided
-by `PhpEntity\SqlQueryProvider`. This package supplies database-independent
+`mathsgod/light-entity` package under `Light\Entity\Sql`. PDO execution is provided
+by `Light\Entity\SqlQueryProvider`. This package supplies database-independent
 LINQ operators, expression trees and the `IQueryProvider` contract.
 
-When upgrading, replace `Light\Linq\Sql` imports with `PhpEntity\Sql` and add a
-`mathsgod/php-entity` dependency if you use SQL compilation or dialects.
+When upgrading, replace `Light\Linq\Sql` imports with `Light\Entity\Sql` and add a
+`mathsgod/light-entity` dependency if you use SQL compilation or dialects.
 
 Install development dependencies and run the PHPUnit test suite with:
 
@@ -368,8 +368,8 @@ composer test
 
 `Light\Linq\IQueryProvider` is the provider interface owned by light-linq.
 `Queryable` depends on this interface; `InMemoryQueryProvider` implements it
-for iterable sources, and `PhpEntity\SqlQueryProvider` implements it for PDO
-execution in php-entity. The former interface name `Light\Linq\QueryProvider`
+for iterable sources, and `Light\Entity\SqlQueryProvider` implements it for PDO
+execution in light-entity. The former interface name `Light\Linq\QueryProvider`
 has been renamed to `Light\Linq\IQueryProvider`; update custom providers and imports.
 
 ## Joining query sources
@@ -378,7 +378,7 @@ has been renamed to `Light\Linq\IQueryProvider`; update custom providers and imp
 `leftJoin(...)` compose two queries from the same provider instance. Keys are
 relative to their respective source; the result selector sees `outer` and
 `inner`. Both operators execute in `InMemoryQueryProvider`; SQL translation
-belongs to `mathsgod/php-entity`.
+belongs to `mathsgod/light-entity`.
 
 ```php
 $query = $orders->leftJoin(

@@ -23,6 +23,6 @@ XML 功能已移至獨立套件 [light-xml](https://github.com/mathsgod/light-xm
 | 需要交由 provider 執行或翻譯查詢 | `Queryable::from()`，使用 `Expr` |
 | provider 查詢後需要一般 PHP 處理 | `asEnumerable()` 後接 callback 操作 |
 
-SQL 編譯及 PDO provider 位於獨立套件 `mathsgod/php-entity`，不屬於 light-linq 的資料庫執行功能。
+SQL 編譯及 PDO provider 位於獨立套件 `mathsgod/light-entity`，不屬於 light-linq 的資料庫執行功能。
 
 [返回專案 README](../README.md)

@@ -198,4 +198,4 @@ $upperNames = $customers->where(Expr::eq(Expr::field('active'), true))
 
 ## SQL provider 的邊界
 
-`IQueryProvider`、`expression()`、`provider()` 提供自訂 provider 的整合點。SQL 編譯、方言及 `PhpEntity\SqlQueryProvider` 屬於 `mathsgod/php-entity`；本篇範例不代表每個 provider 都能翻譯所有組合。資料庫型別、collation 及 null 規則可能令結果與 PHP 嚴格比較不同。
+`IQueryProvider`、`expression()`、`provider()` 提供自訂 provider 的整合點。SQL 編譯、方言及 `Light\Entity\SqlQueryProvider` 屬於 `mathsgod/light-entity`；本篇範例不代表每個 provider 都能翻譯所有組合。資料庫型別、collation 及 null 規則可能令結果與 PHP 嚴格比較不同。
