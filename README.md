@@ -183,23 +183,42 @@ See the [Enumerable guide](docs/enumerable.md) for execution and equality rules.
 
 ## Generic collections
 
-Collection types now live in the standalone [mathsgod/light-collections](../light-collections/README.md)
-package under `Light\Collections\Generic`. php-linq depends on this package;
+Collection types now live in the standalone [mathsgod/light-collections](https://github.com/mathsgod/light-collections)
+package under `Light\Collections\Generic`. php-linq requires `^1.0` of this package;
 collections do not depend on LINQ. Replace old `Light\Linq\Collections\Generic`
 imports with `Light\Collections\Generic`.
 
 `GenericList`, `Dictionary`, `HashSet`, `Queue`, `Stack`, collection interfaces,
-`EqualityComparer`, and `KeyValuePair` are provided by php-collections. All
+`EqualityComparer`, and `KeyValuePair` are provided by light-collections. All
 collections can be queried through `Enumerable::from($collection)`. See the
-[collection guide](../light-collections/docs/collections.md) for usage.
+[collection guide](https://github.com/mathsgod/light-collections/blob/v1.0.0/docs/collections.md) for usage.
+
+### Materialize query results
+
+```php
+$list = Enumerable::from([3, 1, 3])->toList(); // GenericList: [3, 1, 3]
+$set = Enumerable::from([3, 1, 3])->toHashSet(); // HashSet: unique values
+$usersById = Enumerable::from($users)->toDictionary(fn ($user) => $user['id']);
+$namesById = Enumerable::from($users)->toDictionary(
+    fn ($user) => $user['id'],
+    fn ($user) => $user['name'],
+);
+```
+
+These methods immediately consume the source and return new mutable
+`Light\Collections\Generic` collections. `toDictionary()` rejects null and
+duplicate keys; omitted element selectors retain the original element.
+`toHashSet($comparer)` and `toDictionary($keySelector, $elementSelector, $comparer)`
+accept an optional `EqualityComparer`. For provider queries, call
+`asEnumerable()` before these conversions.
 
 ## LINQ to XML migration
 
-XML support now lives in the separate [mathsgod/php-xml](../light-xml/README.md)
+XML support now lives in the separate [mathsgod/php-xml](https://github.com/mathsgod/light-xml)
 package. Install that package and replace `Light\Linq\Xml` imports with
 `Light\Xml\Linq`. The old XML classes are removed; php-linq no longer requires
 `ext-dom`. Existing XML querying APIs are available in php-xml together with
-XML construction, editing and saving. See the [XML querying guide](../light-xml/docs/xml.md).
+XML construction, editing and saving. See the [XML querying guide](https://github.com/mathsgod/light-xml/blob/main/docs/xml.md).
 
 ## Provider-backed queries
 

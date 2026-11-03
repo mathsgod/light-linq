@@ -257,3 +257,37 @@ $stats = $orders->aggregateBy(
 countBy／aggregateBy 均延遲執行，但在第一個結果輸出前需要讀完整個來源。它們只保留每個 key 的累加值，不會保留全部組內元素；結果依 key 首次出現排序，保留該 key 的第一個表示值。空來源回傳空序列，不會輸出 seed。
 
 以上五個方法的 comparer 都是可選的 `EqualityComparer`。預設區分 PHP 型別、array 嚴格相等、物件 identity；null 可以作為 key。自訂 comparer 的相等 key 必須有相同 hash，不同 key 的 hash collision 會再用 `equals()` 分辨。重複列舉時會重新執行來源及 callback，來源須可重播；需要新 Generator 時用 `Enumerable::defer()`。
+
+
+## 轉換為集合：toList、toHashSet、toDictionary
+
+```php
+$rows = Enumerable::from([
+    ['id' => 1, 'name' => 'Ada'],
+    ['id' => 2, 'name' => 'Bob'],
+]);
+$list = $rows->where(fn ($row) => $row['id'] > 0)->toList();
+$set = Enumerable::from([1, 1, '1', null])->toHashSet(); // 3 個不同元素
+$byId = $rows->toDictionary(fn ($row) => $row['id']);
+$ada = $byId->get(1); // ['id' => 1, 'name' => 'Ada']
+$names = $rows->toDictionary(fn ($row) => $row['id'], fn ($row) => $row['name']);
+$name = $names->get(2); // 'Bob'
+```
+
+| 方法 | 回傳類別（`Light\Collections\Generic`） | 行為 |
+| --- | --- | --- |
+| `toList()` | `GenericList` | 保留順序、重複值及 null，捨棄來源 iterator keys |
+| `toHashSet($comparer = null)` | `HashSet` | 依比較器去重，不保證列舉順序 |
+| `toDictionary($keySelector, $elementSelector = null, $comparer = null)` | `Dictionary` | 由 selector 取得 key；未指定 element selector 時保留原元素 |
+
+三者均即時執行、讀取來源一次，建立新的可修改集合；之後讀取集合不會重新執行查詢。
+每次轉換均建立獨立集合，但元素內的物件不會深層複製。來源或 selector 的例外會直接傳出。
+空來源回傳空集合，不會呼叫 selector。單次使用的 Generator 轉換後會被消耗。
+
+`toHashSet()` 及 `toDictionary()` 可傳入 `EqualityComparer`。預設比較區分型別，
+例如整數 `1` 和字串 `'1'` 不會合併；物件使用 identity 比較。
+Dictionary 依比較器判斷重複 key，重複或 null key 會拋出 `InvalidArgumentException`，不會覆寫。
+Dictionary 列舉產生 `KeyValuePair`，不是 PHP array 的 key/value entries。
+只需自訂 key 比較器、保留原元素時，可用 `toDictionary($keySelector, comparer: $comparer)`。
+
+Queryable 可先呼叫 `asEnumerable()`，再使用上述轉換方法，將 provider 查詢結果實體化為集合。

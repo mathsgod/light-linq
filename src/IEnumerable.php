@@ -6,7 +6,10 @@ namespace Light\Linq;
 
 use Countable;
 use IteratorAggregate;
+use Light\Collections\Generic\Dictionary;
 use Light\Collections\Generic\EqualityComparer;
+use Light\Collections\Generic\GenericList;
+use Light\Collections\Generic\HashSet;
 use Light\Collections\Generic\KeyValuePair;
 use Traversable;
 
@@ -244,6 +247,27 @@ interface IEnumerable extends IteratorAggregate, Countable
 
     /** @param callable(mixed, T): mixed $accumulator */
     public function aggregate(callable $accumulator, mixed $seed = null): mixed;
+
+    /** @return GenericList<T> */
+    public function toList(): GenericList;
+
+    /** @param EqualityComparer<T>|null $comparer @return HashSet<T> */
+    public function toHashSet(?EqualityComparer $comparer = null): HashSet;
+
+    /**
+     * @template TKey
+     * @template TValue
+     * @param callable(T): TKey $keySelector
+     * @param (callable(T): TValue)|null $elementSelector Defaults to the source element.
+     * @param EqualityComparer<TKey>|null $comparer
+     * @return Dictionary<TKey, TValue|T>
+     * @throws \InvalidArgumentException If a selected key is null or duplicated.
+     */
+    public function toDictionary(
+        callable $keySelector,
+        ?callable $elementSelector = null,
+        ?EqualityComparer $comparer = null,
+    ): Dictionary;
 
     /** @return list<T> */
     public function toArray(): array;

@@ -4,15 +4,21 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "66db020ce5b7fff234308aaa2cc284bf",
+    "content-hash": "de299b3bc6b978cee6be797eb5948ea4",
     "packages": [
         {
             "name": "mathsgod/light-collections",
-            "version": "dev-main",
+            "version": "v1.0.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/mathsgod/light-collections.git",
+                "reference": "033e3bab182941c1e56e12a748934d17923c885c"
+            },
             "dist": {
-                "type": "path",
-                "url": "../light-collections",
-                "reference": "78c860db49f058801d2719d97a5e64f6e998a389"
+                "type": "zip",
+                "url": "https://api.github.com/repos/mathsgod/light-collections/zipball/033e3bab182941c1e56e12a748934d17923c885c",
+                "reference": "033e3bab182941c1e56e12a748934d17923c885c",
+                "shasum": ""
             },
             "require": {
                 "php": ">=8.3"
@@ -26,19 +32,16 @@
                     "Light\\Collections\\": "src/"
                 }
             },
-            "scripts": {
-                "test": [
-                    "phpunit"
-                ]
-            },
+            "notification-url": "https://packagist.org/downloads/",
             "license": [
                 "MIT"
             ],
             "description": "Standalone .NET-style generic collections for PHP",
-            "transport-options": {
-                "symlink": true,
-                "relative": true
-            }
+            "support": {
+                "issues": "https://github.com/mathsgod/light-collections/issues",
+                "source": "https://github.com/mathsgod/light-collections/tree/v1.0.0"
+            },
+            "time": "2026-11-03T03:30:36+00:00"
         }
     ],
     "packages-dev": [
@@ -1762,9 +1765,7 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": {
-        "mathsgod/light-collections": 20
-    },
+    "stability-flags": {},
     "prefer-stable": false,
     "prefer-lowest": false,
     "platform": {

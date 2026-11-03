@@ -6,7 +6,9 @@ namespace Light\Linq;
 
 use Closure;
 use Light\Collections\Generic\DefaultEqualityComparer;
+use Light\Collections\Generic\Dictionary;
 use Light\Collections\Generic\EqualityComparer;
+use Light\Collections\Generic\GenericList;
 use Light\Collections\Generic\HashSet;
 use Light\Collections\Generic\KeyValuePair;
 use Traversable;
@@ -748,6 +750,41 @@ class Enumerable implements IEnumerable
             throw new \UnderflowException('Cannot aggregate an empty sequence without a seed.');
         }
         return $result;
+    }
+
+    /** @return GenericList<T> */
+    public function toList(): GenericList
+    {
+        return new GenericList($this);
+    }
+
+    /** @param EqualityComparer<T>|null $comparer @return HashSet<T> */
+    public function toHashSet(?EqualityComparer $comparer = null): HashSet
+    {
+        return new HashSet($this, $comparer);
+    }
+
+    /**
+     * @template TKey
+     * @template TValue
+     * @param callable(T): TKey $keySelector
+     * @param (callable(T): TValue)|null $elementSelector Defaults to the source element.
+     * @param EqualityComparer<TKey>|null $comparer
+     * @return Dictionary<TKey, TValue|T>
+     * @throws \InvalidArgumentException If a selected key is null or duplicated.
+     */
+    public function toDictionary(
+        callable $keySelector,
+        ?callable $elementSelector = null,
+        ?EqualityComparer $comparer = null,
+    ): Dictionary {
+        $dictionary = new Dictionary($comparer);
+        foreach ($this as $item) {
+            $key = $keySelector($item);
+            $value = $elementSelector === null ? $item : $elementSelector($item);
+            $dictionary->add($key, $value);
+        }
+        return $dictionary;
     }
 
     public function toArray(): array
