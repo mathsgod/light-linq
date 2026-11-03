@@ -72,7 +72,7 @@ final class InMemoryQueryProvider implements IQueryProvider
             'take' => $this->take($source, $expression->arguments['count']),
             'firstOrDefault', 'single', 'singleOrDefault', 'last', 'lastOrDefault' => $this->terminalRows($source, $expression),
             'all' => $this->allRows($source, $expression->arguments['predicate']),
-            'contains' => Enumerable::from($source)->contains($expression->arguments['value']),
+            'contains' => Enumerable::from($source)->any(static fn (mixed $item): bool => $item === $expression->arguments['value']),
             'average', 'min', 'max' => $this->terminalAggregate($source, $expression),
             'sum' => Enumerable::from($source)->sum(fn ($row) => $this->evaluate($expression->arguments['selector'], $row)),
             'count' => iterator_count($this->iterator($source)),

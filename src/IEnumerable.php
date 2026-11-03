@@ -16,6 +16,9 @@ use Traversable;
 /** @template T @extends IteratorAggregate<int, T> */
 interface IEnumerable extends IteratorAggregate, Countable
 {
+    /** @return IEnumerable<array{index: int, value: T}> */
+    public function index(): IEnumerable;
+
     /** @template TResult @param callable(T): TResult $selector @return IEnumerable<TResult> */
     public function select(callable $selector): IEnumerable;
 
@@ -87,6 +90,14 @@ interface IEnumerable extends IteratorAggregate, Countable
     /** @param (callable(T): mixed)|null $keySelector @return IEnumerable<T> */
     public function distinct(?callable $keySelector = null): IEnumerable;
 
+    /**
+     * @template TKey
+     * @param callable(T): TKey $keySelector
+     * @param EqualityComparer<TKey>|null $comparer
+     * @return IEnumerable<T>
+     */
+    public function distinctBy(callable $keySelector, ?EqualityComparer $comparer = null): IEnumerable;
+
     /** @param T $value @return IEnumerable<T> */
     public function append(mixed $value): IEnumerable;
 
@@ -132,8 +143,8 @@ interface IEnumerable extends IteratorAggregate, Countable
     /** @param callable(T): bool $predicate */
     public function all(callable $predicate): bool;
 
-    /** @param T $value */
-    public function contains(mixed $value): bool;
+    /** @param T $value @param EqualityComparer<T>|null $comparer */
+    public function contains(mixed $value, ?EqualityComparer $comparer = null): bool;
 
     /** @param callable(T): bool|null $predicate @return T */
     public function first(?callable $predicate = null): mixed;

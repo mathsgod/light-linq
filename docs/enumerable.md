@@ -38,6 +38,32 @@ $users[0]->name = 'Bob';
 // $users[1]->name 和 $users[2]->name 亦為 'Bob'
 ```
 
+## index：為序列加入位置編號
+
+```php
+$indexed = Enumerable::from(['a' => 'Ada', 'b' => 'Bob'])->index()->toArray();
+// [['index' => 0, 'value' => 'Ada'], ['index' => 1, 'value' => 'Bob']]
+
+$labels = Enumerable::from(['Ada', 'Bob', 'Cat'])->index()
+    ->where(fn ($pair) => $pair['index'] % 2 === 0)
+    ->select(fn ($pair) => $pair['index'].': '.$pair['value'])
+    ->toArray();
+// ['0: Ada', '2: Cat']
+```
+
+`index()` 回傳 `IEnumerable<array{index: int, value: T}>`，位置由 0 開始，
+按目前序列逐個增加，不使用原本 PHP array／iterator 的 key。
+重複元素、null、false 及物件都保留原值；不會複製物件。
+
+編號的位置取決於操作次序：先 `where()` 再 `index()` 會為篩選後的結果連續編號；
+先 `index()` 再 `where()` 則保留篩選前的位置，可能出現跳號。
+方法延遲並串流執行，不緩衝完整來源；每次列舉都由 0 重新開始。
+來源仍須符合原有的重播規則，單次 Generator 不會因 index 而變成可重播。
+空來源回傳空序列，來源例外直接傳出。
+
+Queryable 可先呼叫 `asEnumerable()` 再 `index()`，為 provider 結果在 PHP 端編號；
+需要固定次序時，請先明確排序。本方法不改變 `select()`／`where()` 的 callback 參數。
+
 ## 篩選、投影與攤平
 
 ```php
@@ -135,7 +161,7 @@ $only = $numbers->single(fn ($n) => $n === 3); // 3
 | `single()` | `UnderflowException` | `UnexpectedValueException` |
 | `singleOrDefault()` | 回傳 `$default`（預設 null） | `UnexpectedValueException` |
 
-以上取得元素的方法均接受可選 predicate。實際元素是 null 或 false 時不會改用 default。`contains()` 使用嚴格比較。空序列的 `any()` 是 false，`all()` 是 true。
+以上取得元素的方法均接受可選 predicate。實際元素是 null 或 false 時不會改用 default。`contains($value, $comparer = null)` 預設使用 `DefaultEqualityComparer`，區分型別、物件依 identity 比較，NaN 視為相等；找到第一個匹配便停止讀取來源。可傳入 `EqualityComparer`，只使用 `equals()`，不需要 hashing。空序列的 `any()` 是 false，`all()` 是 true。
 
 ## 空序列預設值與按位置取值
 
@@ -325,6 +351,37 @@ Dictionary 列舉產生 `KeyValuePair`，不是 PHP array 的 key/value entries�
 
 Queryable 可先呼叫 `asEnumerable()`，再使用上述轉換方法，將 provider 查詢結果實體化為集合。
 
+
+## distinctBy 與自訂相等比較
+
+`distinctBy($keySelector, $comparer = null)` 依 key 去重，保留首次出現的完整原元素及順序。
+未指定 comparer 時與 `distinct($keySelector)` 相同；現有 distinct 簽名維持不變。
+
+```php
+$comparer = new class implements \Light\Collections\Generic\EqualityComparer {
+    public function hash(mixed $value): string { return strtolower($value); }
+    public function equals(mixed $left, mixed $right): bool {
+        return strcasecmp($left, $right) === 0;
+    }
+};
+$rows = Enumerable::from([
+    ['city' => 'HK', 'id' => 1],
+    ['city' => 'Tokyo', 'id' => 2],
+    ['city' => 'hk', 'id' => 3],
+]);
+$ids = $rows->distinctBy(fn ($row) => $row['city'], $comparer)
+    ->select(fn ($row) => $row['id'])->toArray(); // [1, 2]
+$found = Enumerable::from(['Ada', 'Bob'])->contains('ADA', $comparer); // true
+```
+
+distinctBy 使用 HashSet hash lookup，hash collision 仍以 `equals()` 分辨；
+自訂 comparer 的相等 key 必須有相同 hash。操作延遲、串流執行，
+每次列舉重新建立 lookup。預設支援 null、array、物件 identity 及 NaN key。
+空來源不呼叫 selector，來源、selector 及比較器的例外直接傳出。
+
+contains 是立即執行的終結操作，空來源回傳 false、不呼叫比較器。
+本節是 Enumerable 的相等規則；Queryable 的 contains 繼續由 provider 處理，
+若要在 PHP 用自訂比較器，先呼叫 `asEnumerable()`。
 
 ## toLookup：建立唯讀分組索引
 

@@ -68,6 +68,27 @@ positive integer. Each ordering level can use its own comparer; omitted
 comparers use `<=>`. Ties retain source order. Queryable ordering follows its
 provider's rules. See the [sorting guide](docs/enumerable.md).
 
+`index()` lazily attaches zero-based positions to the current sequence:
+
+```php
+$labels = Enumerable::from(['Ada', 'Bob'])->index()
+    ->select(fn ($pair) => $pair['index'].': '.$pair['value'])
+    ->toArray(); // ['0: Ada', '1: Bob']
+```
+
+Each result is `['index' => int, 'value' => original element]`. Source iterator
+keys are ignored and positions restart on each enumeration. Use `asEnumerable()`
+first when indexing provider query results.
+
+`distinctBy($keySelector, $comparer = null)` keeps the first element per key,
+using a hash lookup and an optional `EqualityComparer`. Existing
+`distinct($keySelector)` calls retain their API and use the same default rules.
+Enumerable `contains($value, $comparer = null)` also accepts an equality comparer;
+it stops at the first match and uses only `equals()`. Its default comparer treats
+NaN values as equal, while distinguishing PHP types and object identities.
+Queryable comparisons continue to follow provider rules. See the
+[equality examples](docs/enumerable.md#distinctby-與自訂相等比較).
+
 ### Grouping and grouped joins
 
 `Enumerable::groupBy($keySelector, $comparer = null)` returns iterable,

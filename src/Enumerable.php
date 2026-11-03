@@ -76,6 +76,19 @@ class Enumerable implements IEnumerable
         yield from ($this->factory)();
     }
 
+    /** @return IEnumerable<array{index: int, value: T}> */
+    public function index(): IEnumerable
+    {
+        $source = $this;
+        return new self(static function () use ($source): iterable {
+            $index = 0;
+            foreach ($source as $item) {
+                yield ['index' => $index, 'value' => $item];
+                ++$index;
+            }
+        });
+    }
+
     public function select(callable $selector): IEnumerable
     {
         $source = $this;
@@ -280,10 +293,20 @@ class Enumerable implements IEnumerable
 
     public function distinct(?callable $keySelector = null): IEnumerable
     {
+        return $this->distinctBy($keySelector ?? static fn (mixed $item): mixed => $item);
+    }
+
+    /**
+     * @template TKey
+     * @param callable(T): TKey $keySelector
+     * @param EqualityComparer<TKey>|null $comparer
+     * @return IEnumerable<T>
+     */
+    public function distinctBy(callable $keySelector, ?EqualityComparer $comparer = null): IEnumerable
+    {
         $source = $this;
-        $keySelector ??= static fn (mixed $item): mixed => $item;
-        return new self(static function () use ($source, $keySelector): iterable {
-            $seen = new HashSet();
+        return new self(static function () use ($source, $keySelector, $comparer): iterable {
+            $seen = new HashSet([], $comparer);
             foreach ($source as $item) {
                 if ($seen->tryAdd($keySelector($item))) {
                     yield $item;
@@ -450,9 +473,10 @@ class Enumerable implements IEnumerable
         return true;
     }
 
-    public function contains(mixed $value): bool
+    public function contains(mixed $value, ?EqualityComparer $comparer = null): bool
     {
-        return $this->any(static fn (mixed $item): bool => $item === $value);
+        $comparer ??= new DefaultEqualityComparer();
+        return $this->any(static fn (mixed $item): bool => $comparer->equals($item, $value));
     }
 
     public function first(?callable $predicate = null): mixed
