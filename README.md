@@ -183,51 +183,15 @@ See the [Enumerable guide](docs/enumerable.md) for execution and equality rules.
 
 ## Generic collections
 
-Mutable collections modelled after `System.Collections.Generic` are available
-under `Light\Linq\\Collections\\Generic`:
+Collection types now live in the standalone [mathsgod/light-collections](../light-collections/README.md)
+package under `Light\Collections\Generic`. php-linq depends on this package;
+collections do not depend on LINQ. Replace old `Light\Linq\Collections\Generic`
+imports with `Light\Collections\Generic`.
 
-```php
-use Light\Linq\Collections\Generic\GenericList;
-use Light\Linq\Collections\Generic\Queue;
-use Light\Linq\Collections\Generic\Stack;
-
-$list = new GenericList([1, 2]);
-$list->add(3);
-$list->insert(0, 0);
-$list->insertRange(1, [10, 20]);
-$slice = $list->getRange(1, 2);
-$list->removeRange(1, 2);
-
-$stack = new Stack();
-$stack->push('job');
-$job = $stack->pop();
-
-$queue = new Queue();
-$queue->enqueue('job');
-$job = $queue->dequeue();
-```
-
-PHP reserves the keyword `list`, so the .NET `List<T>` equivalent is named
-`GenericList<T>`. All three collections implement `IteratorAggregate` and can
-be passed directly to `Enumerable::from()`.
-
-The generic collection contracts are organised as follows:
-
-```text
-IReadOnlyCollection<T>
-├── ICollection<T>
-│   ├── IList<T> → GenericList<T>
-│   └── ISet<T>  → HashSet<T>
-├── Stack<T>
-└── Queue<T>
-
-IReadOnlyCollection<KeyValuePair<TKey, TValue>>
-└── IDictionary<TKey, TValue> → Dictionary<TKey, TValue>
-```
-
-`HashSet<T>` supports custom `EqualityComparer<T>` implementations and mutable
-set operations including union, intersection, difference, symmetric
-difference, subset/superset checks, overlap checks, and set equality.
+`GenericList`, `Dictionary`, `HashSet`, `Queue`, `Stack`, collection interfaces,
+`EqualityComparer`, and `KeyValuePair` are provided by php-collections. All
+collections can be queried through `Enumerable::from($collection)`. See the
+[collection guide](../light-collections/docs/collections.md) for usage.
 
 ## LINQ to XML migration
 
@@ -284,11 +248,11 @@ Supported query operators: `where`, `select`, `orderBy`, `orderByDescending`,
 
 ## Generic dictionary
 
-`Collections\\Generic\\Dictionary<TKey, TValue>` is a hash-table collection
+`Light\Collections\Generic\Dictionary<TKey, TValue>` is a hash-table collection
 with object-key support and pluggable equality semantics:
 
 ```php
-use Light\Linq\Collections\Generic\Dictionary;
+use Light\Collections\Generic\Dictionary;
 
 /** @var Dictionary<string, int> $scores */
 $scores = new Dictionary();

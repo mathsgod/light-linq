@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Light\Linq;
 
 use Closure;
-use Light\Linq\Collections\Generic\DefaultEqualityComparer;
-use Light\Linq\Collections\Generic\EqualityComparer;
-use Light\Linq\Collections\Generic\HashSet;
-use Light\Linq\Collections\Generic\KeyValuePair;
+use Light\Collections\Generic\DefaultEqualityComparer;
+use Light\Collections\Generic\EqualityComparer;
+use Light\Collections\Generic\HashSet;
+use Light\Collections\Generic\KeyValuePair;
 use Traversable;
 
 /** @template T @implements IEnumerable<T> */

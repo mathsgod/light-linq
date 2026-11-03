@@ -85,7 +85,7 @@ $grouped = Enumerable::from($customers)->groupJoin(
 兩個新方法均接受最後一個 `$comparer` 參數。以下忽略大小寫：
 
 ```php
-use Light\Linq\Collections\Generic\EqualityComparer;
+use Light\Collections\Generic\EqualityComparer;
 
 $ignoreCase = new class implements EqualityComparer {
     public function hash(mixed $value): string

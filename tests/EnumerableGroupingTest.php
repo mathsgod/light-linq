@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Light\Linq\Tests;
 
-use Light\Linq\Collections\Generic\EqualityComparer;
+use Light\Collections\Generic\EqualityComparer;
 use Light\Linq\Enumerable;
 use Light\Linq\Grouping;
 use Light\Linq\IEnumerable;

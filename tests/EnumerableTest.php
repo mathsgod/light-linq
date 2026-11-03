@@ -8,7 +8,7 @@ use Light\Linq\Enumerable;
 use Light\Linq\Expr;
 use Light\Linq\InMemoryQueryProvider;
 use Light\Linq\Queryable;
-use Light\Linq\Collections\Generic\EqualityComparer;
+use Light\Collections\Generic\EqualityComparer;
 use PHPUnit\Framework\TestCase;
 use UnderflowException;
 use UnexpectedValueException;

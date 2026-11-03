@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Light\Linq\Tests;
 
 use Light\Linq\Enumerable;
-use Light\Linq\Collections\Generic\EqualityComparer;
+use Light\Collections\Generic\EqualityComparer;
 use PHPUnit\Framework\TestCase;
 
 final class SequenceOperatorsTest extends TestCase

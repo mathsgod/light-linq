@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Light\Linq\Tests;
 
-use Light\Linq\Collections\Generic\EqualityComparer;
-use Light\Linq\Collections\Generic\KeyValuePair;
+use Light\Collections\Generic\EqualityComparer;
+use Light\Collections\Generic\KeyValuePair;
 use Light\Linq\Enumerable;
 use Light\Linq\IEnumerable;
 use PHPUnit\Framework\TestCase;

@@ -1,6 +1,6 @@
 # light-linq 使用指南
 
-light-linq 是 PHP 的 LINQ 風格查詢函式庫，支援集合查詢、expression tree、query provider及泛型風格集合。本指南以專案目前實作為準，並非所有 Microsoft LINQ API 都適用。
+light-linq 是 PHP 的 LINQ 風格查詢函式庫，支援集合查詢、expression tree、query provider。本指南以專案目前實作為準，並非所有 Microsoft LINQ API 都適用。
 
 ## 閱讀順序
 
@@ -8,8 +8,10 @@ light-linq 是 PHP 的 LINQ 風格查詢函式庫，支援集合查詢、express
 2. [Enumerable 集合查詢](enumerable.md)：篩選、投影、排序、分頁、聚合及集合運算。
 3. [分組與關聯查詢](grouping-and-joins.md)：groupBy、join、groupJoin、自訂 key 比較。
 4. [Queryable 與運算式](queryable.md)：provider、Expr、分組聚合及查詢組合。
-5. [集合類別](collections.md)：GenericList、Dictionary、HashSet、Queue、Stack。
+5. [集合類別](../../light-collections/docs/collections.md)：GenericList、Dictionary、HashSet、Queue、Stack。
 
+
+集合類別已移至獨立套件 [light-collections](../../light-collections/README.md)，使用 `Light\Collections\Generic` namespace。
 
 XML 功能已移至獨立套件 [light-xml](../../light-xml/README.md)，使用 `Light\Xml\Linq` namespace。
 

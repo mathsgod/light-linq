@@ -4,8 +4,43 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "72831d0334f3bd0f954eb3e83e98d733",
-    "packages": [],
+    "content-hash": "66db020ce5b7fff234308aaa2cc284bf",
+    "packages": [
+        {
+            "name": "mathsgod/light-collections",
+            "version": "dev-main",
+            "dist": {
+                "type": "path",
+                "url": "../light-collections",
+                "reference": "78c860db49f058801d2719d97a5e64f6e998a389"
+            },
+            "require": {
+                "php": ">=8.3"
+            },
+            "require-dev": {
+                "phpunit/phpunit": "^12.5"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Light\\Collections\\": "src/"
+                }
+            },
+            "scripts": {
+                "test": [
+                    "phpunit"
+                ]
+            },
+            "license": [
+                "MIT"
+            ],
+            "description": "Standalone .NET-style generic collections for PHP",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        }
+    ],
     "packages-dev": [
         {
             "name": "myclabs/deep-copy",
@@ -1727,7 +1762,9 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": {},
+    "stability-flags": {
+        "mathsgod/light-collections": 20
+    },
     "prefer-stable": false,
     "prefer-lowest": false,
     "platform": {
