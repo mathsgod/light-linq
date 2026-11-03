@@ -61,6 +61,9 @@ final class InMemoryQueryProvider implements IQueryProvider
             'concat', 'union', 'intersect', 'except' => $this->setRows($source, $expression),
             'selectMany' => $this->flattenRows($source, $expression),
             'join', 'leftJoin' => $this->joinRows($source, $expression),
+            'groupJoin' => $this->groupJoinRows($source, $expression),
+            'zip' => $this->zipRows($source, $expression),
+            'chunk' => Enumerable::from($source)->chunk($expression->arguments['size']),
             'groupBy' => $this->groupRows($source, $expression->arguments['keySelector']),
             'distinct' => $this->distinctRows($source),
             'where' => $this->where($source, $expression->arguments['predicate']),
@@ -234,6 +237,36 @@ final class InMemoryQueryProvider implements IQueryProvider
                 yield $this->evaluate($arguments['resultSelector'], ['outer' => $outer, 'inner' => null]);
             }
         }
+    }
+
+    private function groupJoinRows(iterable $source, MethodCallExpression $expression): \Generator
+    {
+        $arguments = $expression->arguments;
+        $inner = null;
+        foreach ($source as $outer) {
+            $inner ??= iterator_to_array($this->iterator($this->execute($arguments['inner'])), false);
+            $key = $this->evaluate($arguments['outerKey'], $outer);
+            $matches = [];
+            foreach ($inner as $item) {
+                if ($this->joinKeysEqual($key, $this->evaluate($arguments['innerKey'], $item))) {
+                    $matches[] = $item;
+                }
+            }
+            yield $this->evaluate($arguments['resultSelector'], [
+                'outer' => $outer,
+                'inner' => Enumerable::from($matches),
+            ]);
+        }
+    }
+
+    private function zipRows(iterable $source, MethodCallExpression $expression): \Generator
+    {
+        $second = (function () use ($expression): \Generator {
+            yield from $this->execute($expression->arguments['second']);
+        })();
+        yield from Enumerable::from($source)->zip($second, fn ($outer, $inner) => $this->evaluate(
+            $expression->arguments['resultSelector'], ['outer' => $outer, 'inner' => $inner],
+        ));
     }
 
     private function joinKeysEqual(mixed $left, mixed $right): bool

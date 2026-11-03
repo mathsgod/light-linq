@@ -480,3 +480,18 @@ values or rows, not just primary keys. In-memory queries use the existing
 Enumerable equality rules and first-occurrence order. `concat()` preserves
 all duplicates; the other three operations remove duplicates. Source operators
 remain before the set operation, and subsequent operators apply to its result.
+
+
+### Provider sequence operators
+
+`Queryable::groupJoin()`, `zip()`, and `chunk()` are supported by
+`InMemoryQueryProvider`. Group joins retain one result per outer row and expose
+matching rows as `inner` (`IEnumerable`) to the result expression. Zip pairs rows
+by position to the shorter sequence; chunk returns arrays of up to the requested
+positive size. Binary operations require the same provider instance.
+See the [Queryable guide](docs/queryable.md) for expressions and examples.
+
+The light-entity SQL provider does not translate these three operations. Call
+`asEnumerable()` **before** the operation to run it in PHP with callbacks.
+This is an explicit client evaluation boundary; chunking fetched results does
+not introduce database pagination or limit the SQL provider's fetch buffering.

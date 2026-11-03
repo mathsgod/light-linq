@@ -109,6 +109,37 @@ final readonly class Queryable implements IQueryable
         return $this->joinQuery('leftJoin', $inner, $outerKey, $innerKey, $resultSelector);
     }
 
+    /** Result fields use outer.* and inner (an IEnumerable of matching rows). */
+    public function groupJoin(
+        IQueryable $inner,
+        ValueExpression $outerKey,
+        ValueExpression $innerKey,
+        ValueExpression $resultSelector,
+    ): self {
+        return $this->joinQuery('groupJoin', $inner, $outerKey, $innerKey, $resultSelector);
+    }
+
+    /** Pair rows by enumeration position; result fields use outer.* and inner.*. */
+    public function zip(IQueryable $second, ValueExpression $resultSelector): self
+    {
+        if ($second->provider() !== $this->queryProvider) {
+            throw new \InvalidArgumentException('Zipped queries must use the same provider instance.');
+        }
+        return $this->call('zip', [
+            'second' => $second->expression(),
+            'resultSelector' => $resultSelector,
+        ]);
+    }
+
+    /** @return IQueryable<list<T>> */
+    public function chunk(int $size): self
+    {
+        if ($size <= 0) {
+            throw new \InvalidArgumentException('Chunk size must be greater than zero.');
+        }
+        return $this->call('chunk', ['size' => $size]);
+    }
+
     public function orderBy(ValueExpression $keySelector): self
     {
         return $this->call('orderBy', ['keySelector' => $keySelector, 'descending' => false]);

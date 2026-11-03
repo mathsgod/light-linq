@@ -48,6 +48,20 @@ interface IQueryable extends IteratorAggregate
         ValueExpression $resultSelector,
     ): self;
 
+    /** Result fields use outer.* and inner (an IEnumerable of matching rows). */
+    public function groupJoin(
+        IQueryable $inner,
+        ValueExpression $outerKey,
+        ValueExpression $innerKey,
+        ValueExpression $resultSelector,
+    ): self;
+
+    /** Pair rows by enumeration position; result fields use outer.* and inner.*. */
+    public function zip(IQueryable $second, ValueExpression $resultSelector): self;
+
+    /** @return IQueryable<list<T>> */
+    public function chunk(int $size): self;
+
     public function orderBy(ValueExpression $keySelector): self;
 
     public function orderByDescending(ValueExpression $keySelector): self;

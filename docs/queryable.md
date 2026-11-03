@@ -119,7 +119,64 @@ $pairs = $customers->selectMany(
 
 兩個查詢必須來自同一個 provider 實例。Join 的 key 相對於各自來源；result selector 使用 `outer.*`／`inner.*`。null join key 不會匹配。`selectMany()` 沒有 predicate 時會回傳所有 outer／inner 配對；這個 API 接受明確的 inner 查詢，與 Enumerable 的 callback 攤平不同。
 
-若要繼續組合 SQL join，來源請使用具名 row 投影，避免純值投影。`groupJoin()` 目前只在 Enumerable 提供。
+若要繼續組合 SQL join，來源請使用具名 row 投影，避免純值投影。`groupJoin()` 的記憶體 provider 行為見下一節；SQL provider 尚未翻譯此操作。
+
+## groupJoin、zip 與 chunk（依 provider 支援）
+
+這三個方法保留在 Queryable expression tree，並非自動轉成 PHP callback。
+`InMemoryQueryProvider` 支援它們；light-entity 的 SQL provider 尚未支援直接翻譯。
+
+```php
+$groups = $customers->groupJoin(
+    $orders,
+    Expr::field('id'),
+    Expr::field('customerId'),
+    Expr::projection(['name' => 'outer.name', 'orders' => 'inner']),
+)->toArray();
+// 每筆 customer 一個結果，orders 為 IEnumerable，即使沒有匹配也保留空序列。
+foreach ($groups as $group) {
+    $orderIds = $group['orders']->select(fn ($order) => $order['id'])->toArray();
+}
+
+$pairs = $customers->orderBy(Expr::field('id'))->zip(
+    $orders->orderBy(Expr::field('id')),
+    Expr::projection(['name' => 'outer.name', 'orderId' => 'inner.id']),
+)->toArray();
+
+$batches = $orders->orderBy(Expr::field('id'))->chunk(2)->toArray();
+// 回傳 list<list<row>>，最後一批可能不足 2 筆。
+```
+
+`groupJoin()` 的 key 相對於各自來源；result selector 的 `outer` 是目前外側元素，
+`inner` 是可重複列舉的 `IEnumerable` 匹配集合。保留每筆 outer（包括重複 key 及未匹配），
+以及 inner 的重複元素和順序。key 比較沿用 Queryable join 的關聯式規則：區分 PHP 型別，
+null key 不匹配，複合 key 任何成員為 null 亦不匹配。每次執行最多讀取 inner 一次並緩衝，
+outer 為空時不讀取 inner。這與 callback Enumerable 的預設 equality 規則不同。
+
+`zip($second, $resultSelector)` 按列舉位置配對，與 key 無關；結果長度為較短序列的長度。
+result selector 同樣使用 `outer`／`inner`。需要可預期的配對時，請先明確排序兩邊。
+`groupJoin()`／`zip()` 的兩個查詢必須使用同一個 provider 實例，否則建立查詢時拋出
+`InvalidArgumentException`。
+
+`chunk($size)` 要求正整數，否則建立查詢時拋出 `InvalidArgumentException`。
+記憶體 provider 每次只緩衝當前批次，捨棄來源 iterator keys；空來源不產生批次。
+chunk 後每個元素是 array，可用 `skip()`／`take()` 分批，或 `asEnumerable()` 後用 callback 處理。
+三個方法均在列舉或終結操作時執行；記憶體 provider 不會在查詢建立時讀取來源。
+
+SQL 查詢請在這些操作之前明確切換到 Enumerable；切換後使用 callback，並在 PHP 執行：
+
+```php
+$batches = $orders->orderBy(Expr::field('id'))->asEnumerable()->chunk(100);
+$groups = $customers->asEnumerable()->groupJoin(
+    $orders->asEnumerable(),
+    fn ($customer) => $customer['id'],
+    fn ($order) => $order['customerId'],
+    fn ($customer, $matches) => ['customer' => $customer, 'orders' => $matches->toArray()],
+);
+```
+
+`chunk()` 分割已取得的結果，並非資料庫分頁或每批發出一次 SQL 查詢；
+SQL provider 仍可能在切換前載入全部結果，先用 `where()`／`take()` 限制需要的資料。
 
 ## 集合運算與切換到 Enumerable
 
