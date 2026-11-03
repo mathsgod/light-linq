@@ -9,7 +9,7 @@ final class OrderedEnumerable extends Enumerable implements IOrderedEnumerable
 {
     /**
      * @param IEnumerable<T> $source
-     * @param list<array{0: callable(T): mixed, 1: bool}> $criteria
+     * @param list<array{0: callable(T): mixed, 1: bool, 2?: (callable(mixed, mixed): int)|null}> $criteria
      */
     public function __construct(
         private readonly IEnumerable $source,
@@ -18,14 +18,14 @@ final class OrderedEnumerable extends Enumerable implements IOrderedEnumerable
         parent::__construct(fn (): iterable => $this->sorted());
     }
 
-    public function thenBy(callable $keySelector): IOrderedEnumerable
+    public function thenBy(callable $keySelector, ?callable $comparer = null): IOrderedEnumerable
     {
-        return new self($this->source, [...$this->criteria, [$keySelector, false]]);
+        return new self($this->source, [...$this->criteria, [$keySelector, false, $comparer]]);
     }
 
-    public function thenByDescending(callable $keySelector): IOrderedEnumerable
+    public function thenByDescending(callable $keySelector, ?callable $comparer = null): IOrderedEnumerable
     {
-        return new self($this->source, [...$this->criteria, [$keySelector, true]]);
+        return new self($this->source, [...$this->criteria, [$keySelector, true, $comparer]]);
     }
 
     /** @return list<T> */
@@ -38,8 +38,15 @@ final class OrderedEnumerable extends Enumerable implements IOrderedEnumerable
         }
 
         usort($decorated, function (array $left, array $right): int {
-            foreach ($this->criteria as [$selector, $descending]) {
-                $comparison = $selector($left['value']) <=> $selector($right['value']);
+            foreach ($this->criteria as $criterion) {
+                [$selector, $descending] = $criterion;
+                $comparer = $criterion[2] ?? null;
+                $leftKey = $selector($left['value']);
+                $rightKey = $selector($right['value']);
+                // Normalize the sign before reversing so PHP_INT_MIN cannot overflow.
+                $comparison = $comparer === null
+                    ? $leftKey <=> $rightKey
+                    : $comparer($leftKey, $rightKey) <=> 0;
                 if ($comparison !== 0) {
                     return $descending ? -$comparison : $comparison;
                 }

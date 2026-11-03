@@ -54,6 +54,20 @@ unmatched left element. Both accept the same selectors and optional
 `EqualityComparer` as `join()`; the result selector always receives left then
 right. See the [outer join examples](docs/grouping-and-joins.md#leftjoin-與-rightjoin保留未匹配資料).
 
+Enumerable ordering supports an optional key comparer on `orderBy()`,
+`orderByDescending()`, `thenBy()` and `thenByDescending()`:
+
+```php
+$sorted = Enumerable::from(['file10', 'file2', 'file1'])
+    ->orderBy(fn ($name) => $name, 'strnatcmp')
+    ->toArray(); // ['file1', 'file2', 'file10']
+```
+
+Comparers receive selected keys and return a negative integer, zero or a
+positive integer. Each ordering level can use its own comparer; omitted
+comparers use `<=>`. Ties retain source order. Queryable ordering follows its
+provider's rules. See the [sorting guide](docs/enumerable.md).
+
 ### Grouping and grouped joins
 
 `Enumerable::groupBy($keySelector, $comparer = null)` returns iterable,
@@ -217,6 +231,27 @@ duplicate keys; omitted element selectors retain the original element.
 `toHashSet($comparer)` and `toDictionary($keySelector, $elementSelector, $comparer)`
 accept an optional `EqualityComparer`. For provider queries, call
 `asEnumerable()` before these conversions.
+
+### Read-only grouped lookup
+
+`toLookup($keySelector, $elementSelector = null, $comparer = null)` immediately
+builds a `Light\Linq\Lookup` for repeated one-to-many key lookups:
+
+```php
+$orderIds = Enumerable::from($orders)->toLookup(
+    fn ($order) => $order['customerId'],
+    fn ($order) => $order['id'],
+);
+$ids = $orderIds->get(1)->toArray(); // all order IDs for customer 1
+$exists = $orderIds->contains(1);
+$groups = $orderIds->count(); // number of distinct keys
+```
+
+Missing keys return an empty `IEnumerable`. Null keys and custom
+`EqualityComparer` implementations are supported. Iteration yields read-only
+`Grouping` objects in first-key order, retaining element order within each
+group. The index is read-only and reusable; stored objects are not deep-cloned.
+See the [Lookup guide](docs/enumerable.md#tolookup建立唯讀分組索引).
 
 ## LINQ to XML migration
 

@@ -171,14 +171,14 @@ class Enumerable implements IEnumerable
         return [$groups, $buckets];
     }
 
-    public function orderBy(callable $keySelector): IOrderedEnumerable
+    public function orderBy(callable $keySelector, ?callable $comparer = null): IOrderedEnumerable
     {
-        return new OrderedEnumerable($this, [[$keySelector, false]]);
+        return new OrderedEnumerable($this, [[$keySelector, false, $comparer]]);
     }
 
-    public function orderByDescending(callable $keySelector): IOrderedEnumerable
+    public function orderByDescending(callable $keySelector, ?callable $comparer = null): IOrderedEnumerable
     {
-        return new OrderedEnumerable($this, [[$keySelector, true]]);
+        return new OrderedEnumerable($this, [[$keySelector, true, $comparer]]);
     }
 
     public function skip(int $count): IEnumerable
@@ -835,6 +835,22 @@ class Enumerable implements IEnumerable
             $dictionary->add($key, $value);
         }
         return $dictionary;
+    }
+
+    /**
+     * @template TKey
+     * @template TElement
+     * @param callable(T): TKey $keySelector
+     * @param (callable(T): TElement)|null $elementSelector Defaults to the source element.
+     * @param EqualityComparer<TKey>|null $comparer
+     * @return Lookup<TKey, TElement|T>
+     */
+    public function toLookup(
+        callable $keySelector,
+        ?callable $elementSelector = null,
+        ?EqualityComparer $comparer = null,
+    ): Lookup {
+        return new Lookup($this, $keySelector, $elementSelector, $comparer);
     }
 
     public function toArray(): array

@@ -67,6 +67,31 @@ $sorted = $rows->orderBy(fn ($row) => $row['city'])
 
 `orderByDescending()` 是主排序的降序版本。`thenBy()`／`thenByDescending()` 接在排序結果上；重新呼叫 `orderBy()` 會建立新的主排序。相同排序 key 保持原始順序。
 
+四個排序方法均接受第二個可選參數 `?callable $comparer = null`。
+comparer 接收兩個已選出的 key，回傳負整數、0、正整數表示小於、相等、大於。
+未指定或傳入 null 時使用 PHP `<=>`；降序由方法自動反轉比較方向。
+
+```php
+$names = Enumerable::from(['bob', 'Ada', 'ada'])
+    ->orderBy(fn ($name) => $name, 'strcasecmp')->toArray();
+// ['Ada', 'ada', 'bob']：比較相同時保留原始順序
+
+$files = Enumerable::from(['file10', 'file2', 'file1'])
+    ->orderBy(fn ($name) => $name, comparer: 'strnatcmp')->toArray();
+// ['file1', 'file2', 'file10']
+
+$sorted = $rows->orderBy(fn ($row) => $row['city'], 'strcasecmp')
+    ->thenByDescending(fn ($row) => $row['age'])
+    ->toArray();
+```
+
+每一層排序均可指定自己的 comparer，只有前一層比較相同時才使用下一層。
+所有層都相同時保留來源順序，包括降序排序。comparer 必須提供一致的排序規則，
+並接受 selector 可能回傳的 key（包括 null）。這是排序 callback，不是 hash／相等判斷的 `EqualityComparer`。
+排序延遲至列舉時才讀取並緩衝完整來源，comparer 的例外會直接傳出。
+本功能屬於 Enumerable／OrderedEnumerable；Queryable 的 expression 排序仍由 provider 處理。
+
+
 | 方法 | 用途 |
 | --- | --- |
 | `skip($count)` / `take($count)` | 略過／取得前 N 個元素 |
@@ -299,3 +324,55 @@ Dictionary 列舉產生 `KeyValuePair`，不是 PHP array 的 key/value entries�
 只需自訂 key 比較器、保留原元素時，可用 `toDictionary($keySelector, comparer: $comparer)`。
 
 Queryable 可先呼叫 `asEnumerable()`，再使用上述轉換方法，將 provider 查詢結果實體化為集合。
+
+
+## toLookup：建立唯讀分組索引
+
+```php
+$orders = Enumerable::from([
+    ['id' => 101, 'customerId' => 1],
+    ['id' => 102, 'customerId' => 1],
+    ['id' => 103, 'customerId' => 2],
+]);
+$lookup = $orders->toLookup(fn ($order) => $order['customerId']);
+$rows = $lookup->get(1)->toArray(); // 訂單 101、102
+$missing = $lookup->get(9)->toArray(); // []，不會新增分組
+$exists = $lookup->contains(1); // true
+$groupCount = $lookup->count(); // 2，並非訂單總數
+
+$ids = $orders->toLookup(
+    fn ($order) => $order['customerId'],
+    fn ($order) => $order['id'],
+);
+$ids->get(1)->toArray(); // [101, 102]
+
+foreach ($ids as $group) {
+    $group->key;   // customerId
+    $group->items; // 該組訂單 ID 的 list
+}
+```
+
+`toLookup($keySelector, $elementSelector = null, $comparer = null)` 回傳
+`Light\Linq\Lookup<TKey, TElement>`。未指定 element selector 時保留原元素。
+重複 key 加入同一組，不會像 `toDictionary()` 一樣拋出例外。
+`get($key)` 回傳可串接查詢、可重複列舉的 `IEnumerable`；不存在的 key 回傳空序列。
+`contains($key)` 檢查分組存在與否，與組內元素是否為 null 無關。
+
+Lookup 實作 `Countable` 和 `IteratorAggregate`，列舉產生 `Grouping`，
+保留 key 首次出現順序及組內元素原有順序。`Grouping` 可列舉及計數，
+公開的 `key`／`items` 為唯讀，不能直接增刪分組內容。
+亦可直接用 `new Lookup($source, $keySelector, $elementSelector, $comparer)` 建立。
+
+Lookup 的 hash buckets 支援 null key，以及 `EqualityComparer` 自訂規則；
+預設嚴格區分型別、array 嚴格相等、物件使用 identity，NaN 視為相等。
+相等 key 必須產生相同 hash；hash collision 會再以 `equals()` 分辨。
+同一組保留第一個 key 的表示值，例如忽略大小寫比較器會將 `'Ada'`／`'ADA'`
+分入同組，並保留首次出現的 key。只需自訂比較器可寫
+`toLookup($keySelector, comparer: $comparer)`。
+
+與延遲執行的 `groupBy()` 不同，`toLookup()` 即時讀完整個來源一次並執行 selectors。
+之後的查找和列舉不會重新讀取來源或執行 selectors，因此適合單次 Generator 及重複查找。
+空來源建立空 Lookup，不會呼叫 selectors；來源、selector 或比較器的例外直接傳出。
+唯讀只限制集合結構，元素內的物件不會深層複製。
+
+Queryable 先呼叫 `asEnumerable()` 再 `toLookup()`，即可為取得的結果建立 PHP 端索引。

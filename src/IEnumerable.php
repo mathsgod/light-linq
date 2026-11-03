@@ -52,11 +52,19 @@ interface IEnumerable extends IteratorAggregate, Countable
         ?EqualityComparer $comparer = null,
     ): IEnumerable;
 
-    /** @param callable(T): mixed $keySelector @return IOrderedEnumerable<T> */
-    public function orderBy(callable $keySelector): IOrderedEnumerable;
+    /**
+     * @param callable(T): mixed $keySelector
+     * @param (callable(mixed, mixed): int)|null $comparer Compares selected keys.
+     * @return IOrderedEnumerable<T>
+     */
+    public function orderBy(callable $keySelector, ?callable $comparer = null): IOrderedEnumerable;
 
-    /** @param callable(T): mixed $keySelector @return IOrderedEnumerable<T> */
-    public function orderByDescending(callable $keySelector): IOrderedEnumerable;
+    /**
+     * @param callable(T): mixed $keySelector
+     * @param (callable(mixed, mixed): int)|null $comparer Compares selected keys.
+     * @return IOrderedEnumerable<T>
+     */
+    public function orderByDescending(callable $keySelector, ?callable $comparer = null): IOrderedEnumerable;
 
     /** @return IEnumerable<T> */
     public function skip(int $count): IEnumerable;
@@ -306,6 +314,20 @@ interface IEnumerable extends IteratorAggregate, Countable
         ?callable $elementSelector = null,
         ?EqualityComparer $comparer = null,
     ): Dictionary;
+
+    /**
+     * @template TKey
+     * @template TElement
+     * @param callable(T): TKey $keySelector
+     * @param (callable(T): TElement)|null $elementSelector Defaults to the source element.
+     * @param EqualityComparer<TKey>|null $comparer
+     * @return Lookup<TKey, TElement|T>
+     */
+    public function toLookup(
+        callable $keySelector,
+        ?callable $elementSelector = null,
+        ?EqualityComparer $comparer = null,
+    ): Lookup;
 
     /** @return list<T> */
     public function toArray(): array;
