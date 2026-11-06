@@ -558,6 +558,44 @@ The light-entity SQL provider does not translate these three operations. Call
 This is an explicit client evaluation boundary; chunking fetched results does
 not introduce database pagination or limit the SQL provider's fetch buffering.
 
+### Upgrading from v1.0.0
+
+Version v1.1.0 adds closure query translation. During this project's initial
+adoption period, this minor release also includes the namespace and interface
+changes listed below. It is not backward compatible with every v1.0.0 use case;
+update imports and custom query/provider implementations when upgrading.
+
+- Update imports and fully qualified names from `Light\Linq\Expression` to
+  `Light\Linq\Expressions`. The expression interface itself is now
+  `Light\Linq\Expressions\Expression`; the old namespace is not aliased.
+- Custom `IQueryable` implementations must accept
+  `ValueExpression|\Closure` in `where()` and `select()`, and
+  `ValueExpression|\Closure|null` in `any()`.
+- Custom providers using the old namespace must update their expression imports.
+  Supporting the new closure operations also requires handling
+  `ContainsExpression`, `AnyExpression`, `NotExpression`, and
+  `OuterFieldExpression`, or explicitly rejecting unsupported nodes.
+- `nikic/php-parser` is now a runtime dependency for closure translation.
+
+Existing explicit `Expr` queries retain their behavior after updating imports.
+The new query helpers are `Expr::contains()`, `Expr::any()`, `Expr::not()` and
+`Expr::outerField()`. SQL-specific `InExpression` and `ExistsExpression` belong
+to the SQL provider, such as light-entity, rather than this library.
+
+An entity set implementing `IQueryable`, including the updated light-entity
+`DbSet`, can be captured directly; no `asQueryable()` call is necessary:
+
+```php
+$roles = $db->set(UserRole::class);
+$users = $db->set(User::class)->where(fn($u) => $roles->any(
+    fn($r) => $r->user_id == $u->user_id && $r->name == 'admins'
+));
+```
+
+Use a compatible release of the ORM/provider alongside the new LINQ release.
+A SQL integration must translate these operations itself; installing light-linq
+alone does not provide a SQL query compiler.
+
 ### Query closures
 
 `Queryable::where()` and `Queryable::select()` accept either an explicit
