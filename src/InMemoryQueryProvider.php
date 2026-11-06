@@ -358,6 +358,7 @@ final class InMemoryQueryProvider implements IQueryProvider
                 ?? $this->evaluate($expression->right, $row),
             $expression instanceof \Light\Linq\Expressions\ConditionalExpression => $this->evaluate($expression->test, $row)
                 ? $this->evaluate($expression->ifTrue, $row) : $this->evaluate($expression->ifFalse, $row),
+            $expression instanceof \Light\Linq\Expressions\ScalarFunctionExpression => $this->evaluateScalarFunction($expression, $row),
             $expression instanceof ConstantExpression => $expression->value,
             $expression instanceof FieldExpression => $this->readField($row, $expression->path),
             $expression instanceof \Light\Linq\Expressions\StringMatchExpression => $this->evaluateStringMatch($expression, $row),
@@ -413,6 +414,10 @@ final class InMemoryQueryProvider implements IQueryProvider
                 $this->bindOuterFields($expression->subject, $row, $depth), $expression->operation,
                 $this->bindOuterFields($expression->needle, $row, $depth));
         }
+        if ($expression instanceof \Light\Linq\Expressions\ScalarFunctionExpression) {
+            return new \Light\Linq\Expressions\ScalarFunctionExpression($expression->function,
+                array_map(fn ($argument) => $this->bindOuterFields($argument, $row, $depth), $expression->arguments));
+        }
         if ($expression instanceof ProjectionExpression) {
             return new ProjectionExpression(array_map(fn ($member) => $this->bindOuterFields($member, $row, $depth), $expression->members));
         }
@@ -431,6 +436,20 @@ final class InMemoryQueryProvider implements IQueryProvider
             $result[$alias] = $this->evaluate($member, $row);
         }
         return $result;
+    }
+
+    private function evaluateScalarFunction(\Light\Linq\Expressions\ScalarFunctionExpression $expression, mixed $row): mixed
+    {
+        $value = $this->evaluate($expression->arguments[0], $row);
+        if ($value === null) { return null; }
+        return match ($expression->function) {
+            'strtolower' => strtolower($value),
+            'strtoupper' => strtoupper($value),
+            'trim' => trim($value),
+            'strlen' => strlen($value),
+            'abs' => abs($value),
+            'round' => round($value, $expression->arguments[1]->value ?? 0, PHP_ROUND_HALF_UP),
+        };
     }
 
     private function evaluateStringMatch(\Light\Linq\Expressions\StringMatchExpression $expression, mixed $row): ?bool

@@ -644,6 +644,8 @@ Supported syntax:
 - Scalar/null literals and captured scalar/null variables, including negative numbers.
 - `==`, `!=`, `>`, `>=`, `<`, `<=`, `&&`, `||`, `and`, `or`, and `!`.
 - Arithmetic `+`, `-`, `*`, `/`, and `%`, preserving precedence and parentheses.
+- Scalar calls `strtolower`, `strtoupper`, `trim`, `strlen`, `abs`, and `round`
+  (one argument, plus optional constant integer precision for `round`).
 - Null coalescing `??` and full ternary `condition ? value : fallback`.
   Short ternary `?:` is unsupported.
 - `str_starts_with`, `str_ends_with`, and `str_contains` with two positional
@@ -780,3 +782,22 @@ are `Expr::coalesce($left, $right)` and `Expr::condition($test, $ifTrue, $ifFals
 The in-memory provider short-circuits unselected branches; `??` preserves all
 non-null values. Short ternary `?:` is unsupported. SQL providers must implement
 these nodes; light-entity renders them as `COALESCE` and `CASE WHEN`.
+
+### Scalar functions in query closures
+
+```php
+$customers->where(fn($c) => strtolower(trim($c->name)) == 'alice');
+$customers->select(fn($c) => strlen($c->name));
+$orders->select(fn($o) => round(abs($o->balance), 2));
+```
+
+These become `ScalarFunctionExpression` nodes, evaluated by the in-memory
+provider using the corresponding PHP functions. A NULL input produces NULL.
+`strlen` measures bytes, not Unicode characters; PHP case conversion is ASCII.
+All six functions accept one positional argument. `round` additionally accepts a
+constant integer precision, including captured integers and negative values;
+its default is zero with `PHP_ROUND_HALF_UP`. Custom trim masks, explicit
+rounding modes, named arguments, unpacking, and field-valued precision are
+rejected during translation. Arbitrary function calls remain unsupported.
+SQL providers must implement the new node; SQL encoding, collation, numeric
+precision and return types may differ. See [the closure guide](docs/closure-translation.md#scalar-functions).

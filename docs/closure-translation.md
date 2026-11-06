@@ -25,6 +25,7 @@ $customers->select(fn($c) => ['id' => $c->id, 'name' => $c->name]);
 | `&& || and or` | `LogicalExpression` |
 | `!` | `NotExpression` |
 | `str_starts_with`、`str_ends_with`、`str_contains` | `StringMatchExpression` |
+| `strtolower`、`strtoupper`、`trim`、`strlen`、`abs`、`round` | `ScalarFunctionExpression` |
 | 具明確字串 key 的非空投影陣列 | `ProjectionExpression` |
 | 捕獲的 query 上的 `contains()` / `any()` | `ContainsExpression` / `AnyExpression` |
 
@@ -92,3 +93,30 @@ $orders->select(fn($o) => [
 它們接受 expression；fallback／分支亦接受常數。
 SQL provider 將這些節點輸出為 `COALESCE` 及 `CASE WHEN`，SQL 條件須是 provider
 支援的 predicate，分支型別亦須符合資料庫規則。
+
+## Scalar functions
+
+```php
+$customers->where(fn($c) => strtolower(trim($c->name)) == 'alice');
+$customers->select(fn($c) => strlen($c->name));
+$orders->select(fn($o) => round(abs($o->balance), 2));
+```
+
+以上六個函式各接受一個 positional argument，`round` 可再接受常數整數 precision。
+函式可以巢狀組合，亦可出現在投影、條件及關聯子查詢內。使用顯式 API 時可以建立
+`new ScalarFunctionExpression('abs', [Expr::field('balance')])`。
+
+記憶體 provider 使用對應的 PHP 函式，但 NULL input 會保留為 NULL。
+`strlen` 計算 bytes；例如 UTF-8 `strlen('中')` 為 3，而不是 1。
+`strtolower`／`strtoupper` 使用 PHP 的 ASCII 大小寫規則；`trim` 使用 PHP 預設空白集。
+`round` 預設 precision 為 0，使用 `PHP_ROUND_HALF_UP`；支援負 precision。
+
+不支援 `trim` 自訂 character mask、`round` 第三個 mode argument、欄位運算 precision、
+named arguments 或 unpacking；這些寫法在 translation 時明確拋出
+`ClosureTranslationException`。捕獲的整數 precision 支援，例如
+`fn($o) => round($o->balance, $precision)`。
+
+SQL provider 負責函式方言；SQL 大小寫規則、儲存編碼、數值精度、overflow 及回傳型別
+可能不同。light-entity 的 `strlen` 使用 byte-length SQL，而非 character count；
+SQL Server 的 NVARCHAR 等不同儲存編碼，不保證等於 PHP 中 UTF-8 字串的 byte 數。
+詳見 light-entity 的 closure translation 文件。

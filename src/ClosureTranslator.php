@@ -207,6 +207,22 @@ final class ClosureTranslator
                 self::expression($node->args[1]->value, $row, $captures, $provider, $scopes),
             );
         }
+        if ($node instanceof Ast\FuncCall && $node->name instanceof Node\Name
+            && !$node->name->isRelative()
+            && in_array(strtolower($node->name->toString()), ['strtolower', 'strtoupper', 'trim', 'strlen', 'abs', 'round'], true)) {
+            $arguments = [];
+            foreach ($node->args as $argument) {
+                if (!$argument instanceof Node\Arg || $argument->unpack || $argument->name !== null) {
+                    throw new ClosureTranslationException('Scalar functions require positional arguments without unpacking.');
+                }
+                $arguments[] = self::expression($argument->value, $row, $captures, $provider, $scopes);
+            }
+            try {
+                return new \Light\Linq\Expressions\ScalarFunctionExpression(strtolower($node->name->toString()), $arguments);
+            } catch (\InvalidArgumentException $error) {
+                throw new ClosureTranslationException($error->getMessage(), 0, $error);
+            }
+        }
         if ($node instanceof Ast\Array_) {
             $members = [];
             foreach ($node->items as $item) {
