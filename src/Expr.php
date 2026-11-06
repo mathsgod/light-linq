@@ -4,38 +4,58 @@ declare(strict_types=1);
 
 namespace Light\Linq;
 
-use Light\Linq\Expression\BinaryExpression;
-use Light\Linq\Expression\ConstantExpression;
-use Light\Linq\Expression\FieldExpression;
-use Light\Linq\Expression\LogicalExpression;
-use Light\Linq\Expression\ProjectionExpression;
-use Light\Linq\Expression\ValueExpression;
+use Light\Linq\Expressions\BinaryExpression;
+use Light\Linq\Expressions\ConstantExpression;
+use Light\Linq\Expressions\FieldExpression;
+use Light\Linq\Expressions\LogicalExpression;
+use Light\Linq\Expressions\ProjectionExpression;
+use Light\Linq\Expressions\ValueExpression;
 
 final class Expr
 {
-    public static function key(?string $member = null): Expression\GroupKeyExpression
+    public static function any(IQueryable $source): Expressions\AnyExpression
     {
-        return new Expression\GroupKeyExpression($member);
+        return new Expressions\AnyExpression($source->expression());
     }
-    public static function count(?ValueExpression $operand = null): Expression\AggregateExpression
+
+    public static function outerField(string $path, int $depth = 1): Expressions\OuterFieldExpression
     {
-        return new Expression\AggregateExpression('count', $operand);
+        return new Expressions\OuterFieldExpression($path, $depth);
     }
-    public static function sum(ValueExpression $operand): Expression\AggregateExpression
+
+    public static function contains(ValueExpression $item, IQueryable $source): Expressions\ContainsExpression
     {
-        return new Expression\AggregateExpression('sum', $operand);
+        return new Expressions\ContainsExpression($item, $source->expression());
     }
-    public static function avg(ValueExpression $operand): Expression\AggregateExpression
+
+    public static function not(ValueExpression $operand): Expressions\NotExpression
     {
-        return new Expression\AggregateExpression('avg', $operand);
+        return new Expressions\NotExpression($operand);
     }
-    public static function min(ValueExpression $operand): Expression\AggregateExpression
+
+    public static function key(?string $member = null): Expressions\GroupKeyExpression
     {
-        return new Expression\AggregateExpression('min', $operand);
+        return new Expressions\GroupKeyExpression($member);
     }
-    public static function max(ValueExpression $operand): Expression\AggregateExpression
+    public static function count(?ValueExpression $operand = null): Expressions\AggregateExpression
     {
-        return new Expression\AggregateExpression('max', $operand);
+        return new Expressions\AggregateExpression('count', $operand);
+    }
+    public static function sum(ValueExpression $operand): Expressions\AggregateExpression
+    {
+        return new Expressions\AggregateExpression('sum', $operand);
+    }
+    public static function avg(ValueExpression $operand): Expressions\AggregateExpression
+    {
+        return new Expressions\AggregateExpression('avg', $operand);
+    }
+    public static function min(ValueExpression $operand): Expressions\AggregateExpression
+    {
+        return new Expressions\AggregateExpression('min', $operand);
+    }
+    public static function max(ValueExpression $operand): Expressions\AggregateExpression
+    {
+        return new Expressions\AggregateExpression('max', $operand);
     }
     public static function field(string $path): FieldExpression
     {

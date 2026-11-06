@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace Light\Linq\Tests;
 
 use Light\Linq\Expr;
-use Light\Linq\Expression\AggregateExpression;
-use Light\Linq\Expression\BinaryExpression;
-use Light\Linq\Expression\FieldExpression;
-use Light\Linq\Expression\LogicalExpression;
-use Light\Linq\Expression\ProjectionExpression;
-use Light\Linq\Expression\SourceExpression;
+use Light\Linq\Expressions\AggregateExpression;
+use Light\Linq\Expressions\BinaryExpression;
+use Light\Linq\Expressions\FieldExpression;
+use Light\Linq\Expressions\LogicalExpression;
+use Light\Linq\Expressions\ProjectionExpression;
+use Light\Linq\Expressions\SourceExpression;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 

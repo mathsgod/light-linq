@@ -6,7 +6,7 @@ namespace Light\Linq\Tests;
 
 use Light\Linq\Enumerable;
 use Light\Linq\Expr;
-use Light\Linq\Expression\MethodCallExpression;
+use Light\Linq\Expressions\MethodCallExpression;
 use Light\Linq\IEnumerable;
 use Light\Linq\InMemoryQueryProvider;
 use Light\Linq\Queryable;

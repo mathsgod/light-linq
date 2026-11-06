@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Light\Linq\Tests;
 
 use Light\Linq\Expr;
-use Light\Linq\Expression\Expression;
-use Light\Linq\Expression\MethodCallExpression;
-use Light\Linq\Expression\SourceExpression;
-use Light\Linq\Expression\ValueExpression;
+use Light\Linq\Expressions\Expression;
+use Light\Linq\Expressions\MethodCallExpression;
+use Light\Linq\Expressions\SourceExpression;
+use Light\Linq\Expressions\ValueExpression;
 use Light\Linq\InMemoryQueryProvider;
 use Light\Linq\IQueryProvider;
 use Light\Linq\Queryable;

@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Light\Linq;
 
 use IteratorAggregate;
-use Light\Linq\Expression\Expression;
-use Light\Linq\Expression\ValueExpression;
+use Light\Linq\Expressions\Expression;
+use Light\Linq\Expressions\ValueExpression;
 use Traversable;
 
 /** @template T @extends IteratorAggregate<int, T> */
@@ -18,9 +18,9 @@ interface IQueryable extends IteratorAggregate
 
     public function groupBy(ValueExpression $keySelector): self;
     public function distinct(): self;
-    public function where(ValueExpression $predicate): self;
+    public function where(ValueExpression|\Closure $predicate): self;
 
-    public function select(ValueExpression $selector): self;
+    public function select(ValueExpression|\Closure $selector): self;
 
     public function concat(IQueryable $second): self;
     public function union(IQueryable $second): self;

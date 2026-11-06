@@ -557,3 +557,121 @@ The light-entity SQL provider does not translate these three operations. Call
 `asEnumerable()` **before** the operation to run it in PHP with callbacks.
 This is an explicit client evaluation boundary; chunking fetched results does
 not introduce database pagination or limit the SQL provider's fetch buffering.
+
+### Query closures
+
+`Queryable::where()` and `Queryable::select()` accept either an explicit
+`ValueExpression` or a PHP closure. Closures are parsed into expression trees;
+they are never invoked to discover query behavior.
+
+```php
+$adminUserIds = Queryable::from($provider, 'roles')
+    ->where(fn($role) => $role->name == 'admins')
+    ->select(fn($role) => $role->user_id);
+
+$users = Queryable::from($provider, 'users')
+    ->where(fn($user) =>
+        $adminUserIds->contains($user->user_id) && $user->status == 'active'
+    )
+    ->toArray();
+```
+
+The membership call becomes an `Expressions\ContainsExpression` containing the
+subquery expression. It does not call `contains()` during translation. Both
+queries must use the same provider instance. The in-memory provider evaluates
+the resulting tree; other providers must implement the new `ContainsExpression` and
+`NotExpression` nodes themselves (for example, as SQL `IN` and `NOT`). This does
+not automatically add closure support to a separate ORM's `DbSet` wrapper.
+Explicit construction is also available through `Expr::contains($item, $query)` and
+`Expr::not($predicate)`.
+
+Supported syntax:
+
+- Arrow functions, or anonymous functions with a single `return` expression.
+- One row parameter, with property paths such as `$user->address->city`.
+- Scalar/null literals and captured scalar/null variables, including negative numbers.
+- `==`, `!=`, `>`, `>=`, `<`, `<=`, `&&`, `||`, `and`, `or`, and `!`.
+- `contains($value)`, `any()`, and `any(fn($row) => ...)` on a captured `IQueryable`.
+- Non-empty projections with explicit string keys, such as
+  `fn($u) => ['id' => $u->id, 'name' => $u->name]`.
+
+These are query expressions, not arbitrary PHP execution. Comparisons follow
+provider semantics: the in-memory provider uses strict equality for `==`/`!=`,
+as it does for `Expr::eq()`/`Expr::neq()`; SQL providers may have different type,
+collation and NULL rules. PHP strict-identity operators (`===`/`!==`) are
+rejected rather than being silently reduced to database equality.
+
+Unsupported syntax throws `ClosureTranslationException` (a `LogicException`)
+when the query is constructed, before provider execution. No automatic fallback
+to client-side filtering occurs. Function calls, arbitrary method calls,
+assignments, loops, dynamic properties, and eval-generated closures are not
+supported. A readable source file is required. Put closures on separate lines:
+PHP reflection provides line ranges, so multiple closures sharing a range are
+rejected as ambiguous.
+
+Parsed source trees are cached with a bounded cache. Captured values are read
+again on every translation, so cached syntax does not retain old parameter values.
+
+### Query operations and provider translation
+
+`ContainsExpression` and `AnyExpression` describe provider-independent query
+operations, not SQL syntax. Their `source` property holds the source query
+expression. The closure translator and in-memory provider use these nodes.
+A SQL provider such as light-entity is responsible for translating them to its
+own SQL `InExpression` / `ExistsExpression` nodes, or another equivalent SQL
+form required by its dialect and NULL handling. SQL expression nodes belong to
+the SQL provider, not light-linq.
+
+### Any and correlated query closures
+
+Within a query closure, `any()` on a captured `IQueryable` becomes an
+`Expressions\AnyExpression`. The optional predicate is an inline closure:
+
+```php
+$roles = Queryable::from($provider, 'roles');
+$users = Queryable::from($provider, 'users')
+    ->where(fn($u) => $roles->any(
+        fn($r) => $r->user_id == $u->user_id && $r->name == 'admins'
+    ));
+```
+
+The translator does not invoke `any()` or execute the inner closure. It builds:
+
+```text
+AnyExpression
+  source: roles.Where(
+    Field(user_id) = OuterField(user_id, depth: 1)
+    AND Field(name) = Constant(admins)
+  )
+```
+
+`any()` with no predicate checks whether the captured query has any rows;
+`!$roles->any(...)` becomes `NotExpression(AnyExpression(...))`. Nested
+`any()` predicates can reference multiple enclosing rows. The nearest enclosing
+row has depth 1, its parent has depth 2, and so on. Inner parameter names shadow
+outer names. Ordinary anonymous functions must explicitly capture outer variables
+with `use`; arrow functions capture them implicitly. A subquery and its outer
+query must use the same provider instance.
+
+The explicit expression API is equivalent:
+
+```php
+$users = Queryable::from($provider, 'users')->where(
+    Expr::any($roles->where(
+        Expr::eq(Expr::field('user_id'), Expr::outerField('user_id'))
+    ))
+);
+```
+
+The in-memory provider supports these nodes. External providers must implement
+`AnyExpression` and `OuterFieldExpression` before using them. SQL providers
+should render `EXISTS (SELECT ...)` and resolve outer-field depth against their
+query scope/alias stack, while keeping local fields and parameter bindings in
+the correct scope. A bare `OuterFieldExpression` without an enclosing AnyExpression
+scope is invalid. This release does not itself change light-entity's SQL compiler.
+
+Only captured query variables are supported as `any()` receivers. Query-building
+method chains inside the closure, such as `$roles->where(...)->any()`, are not
+translated; construct that query beforehand. Inline predicates follow the same
+restricted syntax as other query closures, and unsupported operations throw
+`ClosureTranslationException` during query construction.

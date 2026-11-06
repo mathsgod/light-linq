@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Light\Linq;
 
-use Light\Linq\Expression\Expression;
-use Light\Linq\Expression\MethodCallExpression;
-use Light\Linq\Expression\SourceExpression;
-use Light\Linq\Expression\ValueExpression;
+use Light\Linq\Expressions\Expression;
+use Light\Linq\Expressions\MethodCallExpression;
+use Light\Linq\Expressions\SourceExpression;
+use Light\Linq\Expressions\ValueExpression;
 use Traversable;
 
 /** @template T @implements IQueryable<T> */
@@ -42,13 +42,15 @@ final readonly class Queryable implements IQueryable
     {
         return $this->call('distinct', []);
     }
-    public function where(ValueExpression $predicate): self
+    public function where(ValueExpression|\Closure $predicate): self
     {
+        $predicate = $predicate instanceof \Closure ? ClosureTranslator::translate($predicate, $this->queryProvider) : $predicate;
         return $this->call('where', ['predicate' => $predicate]);
     }
 
-    public function select(ValueExpression $selector): self
+    public function select(ValueExpression|\Closure $selector): self
     {
+        $selector = $selector instanceof \Closure ? ClosureTranslator::translate($selector, $this->queryProvider) : $selector;
         return $this->call('select', ['selector' => $selector]);
     }
 

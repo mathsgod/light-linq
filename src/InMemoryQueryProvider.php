@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace Light\Linq;
 
-use Light\Linq\Expression\BinaryExpression;
-use Light\Linq\Expression\ConstantExpression;
-use Light\Linq\Expression\Expression;
-use Light\Linq\Expression\FieldExpression;
-use Light\Linq\Expression\LogicalExpression;
-use Light\Linq\Expression\MethodCallExpression;
-use Light\Linq\Expression\ProjectionExpression;
-use Light\Linq\Expression\SourceExpression;
-use Light\Linq\Expression\ValueExpression;
+use Light\Linq\Expressions\BinaryExpression;
+use Light\Linq\Expressions\ConstantExpression;
+use Light\Linq\Expressions\Expression;
+use Light\Linq\Expressions\FieldExpression;
+use Light\Linq\Expressions\LogicalExpression;
+use Light\Linq\Expressions\MethodCallExpression;
+use Light\Linq\Expressions\ProjectionExpression;
+use Light\Linq\Expressions\SourceExpression;
+use Light\Linq\Expressions\ValueExpression;
 
 final class InMemoryQueryProvider implements IQueryProvider
 {
@@ -149,14 +149,14 @@ final class InMemoryQueryProvider implements IQueryProvider
             }
         }
     }
-    private function groupKey(\Light\Linq\Expression\GroupKeyExpression $expression, mixed $row): mixed
+    private function groupKey(\Light\Linq\Expressions\GroupKeyExpression $expression, mixed $row): mixed
     {
         if (!$row instanceof Grouping) {
             throw new \LogicException('Group keys require a grouping.');
         }
         return $expression->member === null ? $row->key : $this->readField($row->key, $expression->member);
     }
-    private function aggregate(\Light\Linq\Expression\AggregateExpression $expression, mixed $row): mixed
+    private function aggregate(\Light\Linq\Expressions\AggregateExpression $expression, mixed $row): mixed
     {
         if (!$row instanceof Grouping) {
             throw new \LogicException('Aggregates require a grouping.');
@@ -348,8 +348,12 @@ final class InMemoryQueryProvider implements IQueryProvider
     private function evaluate(ValueExpression $expression, mixed $row): mixed
     {
         return match (true) {
-            $expression instanceof \Light\Linq\Expression\GroupKeyExpression => $this->groupKey($expression, $row),
-            $expression instanceof \Light\Linq\Expression\AggregateExpression => $this->aggregate($expression, $row),
+            $expression instanceof \Light\Linq\Expressions\OuterFieldExpression => throw new \LogicException('Outer fields require an enclosing AnyExpression.'),
+            $expression instanceof \Light\Linq\Expressions\AnyExpression => $this->any($this->execute($this->bindOuterFields($expression->source, $row))),
+            $expression instanceof \Light\Linq\Expressions\ContainsExpression => $this->execute(new MethodCallExpression($expression->source, 'contains', ['value' => $this->evaluate($expression->item, $row)])),
+            $expression instanceof \Light\Linq\Expressions\NotExpression => !$this->evaluate($expression->operand, $row),
+            $expression instanceof \Light\Linq\Expressions\GroupKeyExpression => $this->groupKey($expression, $row),
+            $expression instanceof \Light\Linq\Expressions\AggregateExpression => $this->aggregate($expression, $row),
             $expression instanceof ConstantExpression => $expression->value,
             $expression instanceof FieldExpression => $this->readField($row, $expression->path),
             $expression instanceof BinaryExpression => $this->evaluateBinary($expression, $row),
@@ -357,6 +361,45 @@ final class InMemoryQueryProvider implements IQueryProvider
             $expression instanceof ProjectionExpression => $this->evaluateProjection($expression, $row),
             default => throw new \LogicException('Unsupported value expression: '.$expression::class),
         };
+    }
+
+    /** Bind one outer row without mutable provider state or leaking scopes through lazy iterators. */
+    private function bindOuterFields(Expression $expression, mixed $row, int $depth = 1): Expression
+    {
+        if ($expression instanceof \Light\Linq\Expressions\OuterFieldExpression) {
+            return $expression->depth === $depth
+                ? new ConstantExpression($this->readField($row, $expression->path)) : $expression;
+        }
+        if ($expression instanceof MethodCallExpression) {
+            $arguments = $expression->arguments;
+            foreach ($arguments as $name => $argument) {
+                if ($argument instanceof Expression) { $arguments[$name] = $this->bindOuterFields($argument, $row, $depth); }
+            }
+            return new MethodCallExpression($this->bindOuterFields($expression->source, $row, $depth), $expression->method, $arguments);
+        }
+        if ($expression instanceof BinaryExpression || $expression instanceof LogicalExpression) {
+            $class = $expression::class;
+            return new $class($this->bindOuterFields($expression->left, $row, $depth), $expression->operator,
+                $this->bindOuterFields($expression->right, $row, $depth));
+        }
+        if ($expression instanceof \Light\Linq\Expressions\AnyExpression) {
+            return new \Light\Linq\Expressions\AnyExpression($this->bindOuterFields($expression->source, $row, $depth + 1));
+        }
+        if ($expression instanceof \Light\Linq\Expressions\ContainsExpression) {
+            return new \Light\Linq\Expressions\ContainsExpression($this->bindOuterFields($expression->item, $row, $depth),
+                $this->bindOuterFields($expression->source, $row, $depth));
+        }
+        if ($expression instanceof \Light\Linq\Expressions\NotExpression) {
+            return new \Light\Linq\Expressions\NotExpression($this->bindOuterFields($expression->operand, $row, $depth));
+        }
+        if ($expression instanceof ProjectionExpression) {
+            return new ProjectionExpression(array_map(fn ($member) => $this->bindOuterFields($member, $row, $depth), $expression->members));
+        }
+        if ($expression instanceof \Light\Linq\Expressions\AggregateExpression && $expression->operand !== null) {
+            return new \Light\Linq\Expressions\AggregateExpression($expression->function,
+                $this->bindOuterFields($expression->operand, $row, $depth));
+        }
+        return $expression;
     }
 
     /** @return array<string, mixed> */
