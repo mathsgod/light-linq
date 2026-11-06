@@ -600,7 +600,21 @@ alone does not provide a SQL query compiler.
 
 `Queryable::where()` and `Queryable::select()` accept either an explicit
 `ValueExpression` or a PHP closure. Closures are parsed into expression trees;
-they are never invoked to discover query behavior.
+they are never invoked to discover query behavior. Translation reads the PHP
+source AST at query construction; enumeration or a terminal operation executes
+the resulting tree through the provider. There is no automatic client-side
+fallback. See [Closure translation](docs/closure-translation.md) for syntax,
+expression mappings, provider behavior, and limitations.
+
+```php
+$orders->where(fn($o) => $o->total + $o->tax >= 30);
+$customers->where(fn($c) => str_starts_with($c->name, 'a'));
+```
+
+With light-entity, the second predicate becomes a SQL `LikeExpression`,
+conceptually `WHERE name LIKE 'a%'`. Actual SQL binds the escaped pattern and
+escape character as parameters. Installing light-linq alone does not provide
+SQL execution.
 
 ```php
 $adminUserIds = Queryable::from($provider, 'roles')
@@ -629,6 +643,11 @@ Supported syntax:
 - One row parameter, with property paths such as `$user->address->city`.
 - Scalar/null literals and captured scalar/null variables, including negative numbers.
 - `==`, `!=`, `>`, `>=`, `<`, `<=`, `&&`, `||`, `and`, `or`, and `!`.
+- Arithmetic `+`, `-`, `*`, `/`, and `%`, preserving precedence and parentheses.
+- Null coalescing `??` and full ternary `condition ? value : fallback`.
+  Short ternary `?:` is unsupported.
+- `str_starts_with`, `str_ends_with`, and `str_contains` with two positional
+  arguments; literal, captured, and field-valued needles are supported.
 - `contains($value)`, `any()`, and `any(fn($row) => ...)` on a captured `IQueryable`.
 - Non-empty projections with explicit string keys, such as
   `fn($u) => ['id' => $u->id, 'name' => $u->name]`.
@@ -641,7 +660,7 @@ rejected rather than being silently reduced to database equality.
 
 Unsupported syntax throws `ClosureTranslationException` (a `LogicException`)
 when the query is constructed, before provider execution. No automatic fallback
-to client-side filtering occurs. Function calls, arbitrary method calls,
+to client-side filtering occurs. Other function calls, arbitrary method calls,
 assignments, loops, dynamic properties, and eval-generated closures are not
 supported. A readable source file is required. Put closures on separate lines:
 PHP reflection provides line ranges, so multiple closures sharing a range are
@@ -731,3 +750,33 @@ Custom providers must handle these additional binary operators. The in-memory
 provider uses PHP numeric operations and propagates null arithmetic operands.
 SQL providers use database arithmetic rules, which may differ for integer
 division, remainder, and division by zero.
+
+Query closures also recognize PHP string matching functions:
+
+```php
+$customers->where(fn($c) => str_starts_with($c->name, 'a'));
+$customers->where(fn($c) => str_ends_with($c->name, 'z'));
+$customers->where(fn($c) => str_contains($c->name, $needle));
+```
+
+These become `StringMatchExpression` nodes; custom providers must implement
+these nodes. Both positional arguments may be expressions, including captured
+strings and fields. Named and unpacked arguments are unsupported. Matching is
+literal: `%` and `_` are ordinary characters, not SQL wildcards. The in-memory
+provider uses PHP's case-sensitive matching. Null operands produce null, which
+remains unknown under negation and logical operators and is excluded by `where`.
+
+Null fallback and full ternary query syntax are also supported:
+
+```php
+$orders->select(fn($o) => [
+    'customer' => $o->customer_name ?? 'Guest',
+    'size' => $o->total >= 100 ? 'large' : 'small',
+]);
+```
+
+These create `CoalesceExpression` and `ConditionalExpression`. Explicit helpers
+are `Expr::coalesce($left, $right)` and `Expr::condition($test, $ifTrue, $ifFalse)`.
+The in-memory provider short-circuits unselected branches; `??` preserves all
+non-null values. Short ternary `?:` is unsupported. SQL providers must implement
+these nodes; light-entity renders them as `COALESCE` and `CASE WHEN`.

@@ -57,6 +57,18 @@ final class Expr
     {
         return new Expressions\AggregateExpression('max', $operand);
     }
+    public static function coalesce(ValueExpression $left, mixed $right): Expressions\CoalesceExpression
+    {
+        return new Expressions\CoalesceExpression($left, $right instanceof ValueExpression ? $right : self::value($right));
+    }
+
+    public static function condition(ValueExpression $test, mixed $ifTrue, mixed $ifFalse): Expressions\ConditionalExpression
+    {
+        return new Expressions\ConditionalExpression($test,
+            $ifTrue instanceof ValueExpression ? $ifTrue : self::value($ifTrue),
+            $ifFalse instanceof ValueExpression ? $ifFalse : self::value($ifFalse));
+    }
+
     public static function field(string $path): FieldExpression
     {
         return new FieldExpression($path);

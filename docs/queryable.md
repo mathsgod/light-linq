@@ -2,7 +2,16 @@
 
 [文件目錄](README.md) · [Enumerable](enumerable.md)
 
-`Queryable` 將操作組成 expression tree，由 `IQueryProvider` 執行。與 `Enumerable` 不同，條件及投影使用 `Expr`，不接受一般 PHP callback 作為查詢運算式。
+`Queryable` 將操作組成 expression tree，由 `IQueryProvider` 執行。
+`where()`、`select()` 及 `any()` 接受 `ValueExpression` 或受限制的 PHP closure。
+Closure 透過原始碼 AST 翻譯，不會像 `Enumerable` 的 callback 一樣逐筆呼叫。
+其他方法仍以各自簽名為準，例如 `orderBy()` 接受 `ValueExpression`。
+詳見 [Closure translation](closure-translation.md) 的支援語法及限制。
+
+```php
+$customers->where(fn($c) => str_starts_with($c->name, 'a'));
+$orders->where(fn($o) => $o->total + $o->tax >= 30);
+```
 
 ## 建立 provider 與查詢
 
@@ -37,6 +46,8 @@ $names = $customers->where(Expr::eq(Expr::field('active'), true))
 | --- | --- |
 | `field('name')` | 欄位；可用點分隔的欄位路徑 |
 | `value($value)` | 常數 |
+| `coalesce($left, $right)` | NULL fallback；右側可為 expression 或常數 |
+| `condition($test, $ifTrue, $ifFalse)` | 條件分支；分支可為 expression 或常數 |
 | `eq` / `neq` / `gt` / `gte` / `lt` / `lte` | 比較；左側是 expression，右側可為值或 expression |
 | `both($left, $right)` / `either($left, $right)` | AND／OR |
 | `fields('id', 'name')` | 保留欄位末段名稱的具名投影 |

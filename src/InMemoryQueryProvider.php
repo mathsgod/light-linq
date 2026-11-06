@@ -351,11 +351,16 @@ final class InMemoryQueryProvider implements IQueryProvider
             $expression instanceof \Light\Linq\Expressions\OuterFieldExpression => throw new \LogicException('Outer fields require an enclosing AnyExpression.'),
             $expression instanceof \Light\Linq\Expressions\AnyExpression => $this->any($this->execute($this->bindOuterFields($expression->source, $row))),
             $expression instanceof \Light\Linq\Expressions\ContainsExpression => $this->execute(new MethodCallExpression($expression->source, 'contains', ['value' => $this->evaluate($expression->item, $row)])),
-            $expression instanceof \Light\Linq\Expressions\NotExpression => !$this->evaluate($expression->operand, $row),
+            $expression instanceof \Light\Linq\Expressions\NotExpression => ($value = $this->evaluate($expression->operand, $row)) === null ? null : !$value,
             $expression instanceof \Light\Linq\Expressions\GroupKeyExpression => $this->groupKey($expression, $row),
             $expression instanceof \Light\Linq\Expressions\AggregateExpression => $this->aggregate($expression, $row),
+            $expression instanceof \Light\Linq\Expressions\CoalesceExpression => $this->evaluate($expression->left, $row)
+                ?? $this->evaluate($expression->right, $row),
+            $expression instanceof \Light\Linq\Expressions\ConditionalExpression => $this->evaluate($expression->test, $row)
+                ? $this->evaluate($expression->ifTrue, $row) : $this->evaluate($expression->ifFalse, $row),
             $expression instanceof ConstantExpression => $expression->value,
             $expression instanceof FieldExpression => $this->readField($row, $expression->path),
+            $expression instanceof \Light\Linq\Expressions\StringMatchExpression => $this->evaluateStringMatch($expression, $row),
             $expression instanceof BinaryExpression => $this->evaluateBinary($expression, $row),
             $expression instanceof LogicalExpression => $this->evaluateLogical($expression, $row),
             $expression instanceof ProjectionExpression => $this->evaluateProjection($expression, $row),
@@ -377,6 +382,17 @@ final class InMemoryQueryProvider implements IQueryProvider
             }
             return new MethodCallExpression($this->bindOuterFields($expression->source, $row, $depth), $expression->method, $arguments);
         }
+        if ($expression instanceof \Light\Linq\Expressions\ConditionalExpression) {
+            return new \Light\Linq\Expressions\ConditionalExpression(
+                $this->bindOuterFields($expression->test, $row, $depth),
+                $this->bindOuterFields($expression->ifTrue, $row, $depth),
+                $this->bindOuterFields($expression->ifFalse, $row, $depth));
+        }
+        if ($expression instanceof \Light\Linq\Expressions\CoalesceExpression) {
+            return new \Light\Linq\Expressions\CoalesceExpression(
+                $this->bindOuterFields($expression->left, $row, $depth),
+                $this->bindOuterFields($expression->right, $row, $depth));
+        }
         if ($expression instanceof BinaryExpression || $expression instanceof LogicalExpression) {
             $class = $expression::class;
             return new $class($this->bindOuterFields($expression->left, $row, $depth), $expression->operator,
@@ -391,6 +407,11 @@ final class InMemoryQueryProvider implements IQueryProvider
         }
         if ($expression instanceof \Light\Linq\Expressions\NotExpression) {
             return new \Light\Linq\Expressions\NotExpression($this->bindOuterFields($expression->operand, $row, $depth));
+        }
+        if ($expression instanceof \Light\Linq\Expressions\StringMatchExpression) {
+            return new \Light\Linq\Expressions\StringMatchExpression(
+                $this->bindOuterFields($expression->subject, $row, $depth), $expression->operation,
+                $this->bindOuterFields($expression->needle, $row, $depth));
         }
         if ($expression instanceof ProjectionExpression) {
             return new ProjectionExpression(array_map(fn ($member) => $this->bindOuterFields($member, $row, $depth), $expression->members));
@@ -410,6 +431,18 @@ final class InMemoryQueryProvider implements IQueryProvider
             $result[$alias] = $this->evaluate($member, $row);
         }
         return $result;
+    }
+
+    private function evaluateStringMatch(\Light\Linq\Expressions\StringMatchExpression $expression, mixed $row): ?bool
+    {
+        $subject = $this->evaluate($expression->subject, $row);
+        $needle = $this->evaluate($expression->needle, $row);
+        if ($subject === null || $needle === null) { return null; }
+        return match ($expression->operation) {
+            'startsWith' => str_starts_with($subject, $needle),
+            'endsWith' => str_ends_with($subject, $needle),
+            'contains' => str_contains($subject, $needle),
+        };
     }
 
     private function evaluateBinary(BinaryExpression $expression, mixed $row): mixed
@@ -434,13 +467,15 @@ final class InMemoryQueryProvider implements IQueryProvider
         };
     }
 
-    private function evaluateLogical(LogicalExpression $expression, mixed $row): bool
+    private function evaluateLogical(LogicalExpression $expression, mixed $row): ?bool
     {
-        return $expression->operator === 'and'
-            ? (bool) $this->evaluate($expression->left, $row)
-                && (bool) $this->evaluate($expression->right, $row)
-            : (bool) $this->evaluate($expression->left, $row)
-                || (bool) $this->evaluate($expression->right, $row);
+        $left = $this->evaluate($expression->left, $row);
+        if ($expression->operator === 'and' && $left !== null && !$left) { return false; }
+        if ($expression->operator === 'or' && $left !== null && $left) { return true; }
+        $right = $this->evaluate($expression->right, $row);
+        if ($expression->operator === 'and' && $right !== null && !$right) { return false; }
+        if ($expression->operator === 'or' && $right !== null && $right) { return true; }
+        return $left === null || $right === null ? null : (bool) $right;
     }
 
     private function readField(mixed $row, string $path): mixed

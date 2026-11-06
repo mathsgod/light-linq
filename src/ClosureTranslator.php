@@ -94,6 +94,20 @@ final class ClosureTranslator
         if ($node instanceof Ast\BooleanNot) {
             return new NotExpression(self::expression($node->expr, $row, $captures, $provider, $scopes));
         }
+        if ($node instanceof Ast\BinaryOp\Coalesce) {
+            return new \Light\Linq\Expressions\CoalesceExpression(
+                self::expression($node->left, $row, $captures, $provider, $scopes),
+                self::expression($node->right, $row, $captures, $provider, $scopes));
+        }
+        if ($node instanceof Ast\Ternary) {
+            if ($node->if === null) {
+                throw new ClosureTranslationException('Short ternary ?: is unsupported; use an explicit condition ? value : fallback.');
+            }
+            return new \Light\Linq\Expressions\ConditionalExpression(
+                self::expression($node->cond, $row, $captures, $provider, $scopes),
+                self::expression($node->if, $row, $captures, $provider, $scopes),
+                self::expression($node->else, $row, $captures, $provider, $scopes));
+        }
         if ($node instanceof Ast\BinaryOp) {
             $operator = match (true) {
                 $node instanceof Ast\BinaryOp\BooleanAnd, $node instanceof Ast\BinaryOp\LogicalAnd => 'and',
@@ -170,6 +184,28 @@ final class ClosureTranslator
                 throw new ClosureTranslationException('contains() subqueries must use the same query provider.');
             }
             return new ContainsExpression(self::expression($node->args[0]->value, $row, $captures, $provider, $scopes), $query->expression());
+        }
+        if ($node instanceof Ast\FuncCall && $node->name instanceof Node\Name
+            && !$node->name->isRelative()
+            && in_array(strtolower($node->name->toString()), ['str_starts_with', 'str_ends_with', 'str_contains'], true)) {
+            if (count($node->args) !== 2) {
+                throw new ClosureTranslationException('String matching requires two positional arguments.');
+            }
+            foreach ($node->args as $argument) {
+                if (!$argument instanceof Node\Arg || $argument->unpack || $argument->name !== null) {
+                    throw new ClosureTranslationException('String matching requires two positional arguments.');
+                }
+            }
+            $operation = match (strtolower($node->name->toString())) {
+                'str_starts_with' => 'startsWith',
+                'str_ends_with' => 'endsWith',
+                'str_contains' => 'contains',
+            };
+            return new \Light\Linq\Expressions\StringMatchExpression(
+                self::expression($node->args[0]->value, $row, $captures, $provider, $scopes),
+                $operation,
+                self::expression($node->args[1]->value, $row, $captures, $provider, $scopes),
+            );
         }
         if ($node instanceof Ast\Array_) {
             $members = [];
