@@ -98,6 +98,11 @@ final class ClosureTranslator
             $operator = match (true) {
                 $node instanceof Ast\BinaryOp\BooleanAnd, $node instanceof Ast\BinaryOp\LogicalAnd => 'and',
                 $node instanceof Ast\BinaryOp\BooleanOr, $node instanceof Ast\BinaryOp\LogicalOr => 'or',
+                $node instanceof Ast\BinaryOp\Plus => '+',
+                $node instanceof Ast\BinaryOp\Minus => '-',
+                $node instanceof Ast\BinaryOp\Mul => '*',
+                $node instanceof Ast\BinaryOp\Div => '/',
+                $node instanceof Ast\BinaryOp\Mod => '%',
                 $node instanceof Ast\BinaryOp\Equal => '=',
                 $node instanceof Ast\BinaryOp\NotEqual => '!=',
                 $node instanceof Ast\BinaryOp\Greater => '>',

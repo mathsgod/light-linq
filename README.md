@@ -719,3 +719,15 @@ When called directly it executes the query and returns a boolean. A `contains()`
 or `any()` call appearing inside a translated closure is instead represented as
 an expression node; the captured receiver can be any implementation of
 `IQueryable`, including an ORM's entity set.
+
+Query closures support arithmetic `+`, `-`, `*`, `/`, and `%` as nested
+`BinaryExpression` nodes, preserving PHP's parsed precedence and parentheses:
+
+```php
+$orders->where(fn($o) => $o->total + $o->tax >= 30);
+```
+
+Custom providers must handle these additional binary operators. The in-memory
+provider uses PHP numeric operations and propagates null arithmetic operands.
+SQL providers use database arithmetic rules, which may differ for integer
+division, remainder, and division by zero.

@@ -412,11 +412,19 @@ final class InMemoryQueryProvider implements IQueryProvider
         return $result;
     }
 
-    private function evaluateBinary(BinaryExpression $expression, mixed $row): bool
+    private function evaluateBinary(BinaryExpression $expression, mixed $row): mixed
     {
         $left = $this->evaluate($expression->left, $row);
         $right = $this->evaluate($expression->right, $row);
+        if (in_array($expression->operator, ['+', '-', '*', '/', '%'], true) && ($left === null || $right === null)) {
+            return null;
+        }
         return match ($expression->operator) {
+            '+' => $left + $right,
+            '-' => $left - $right,
+            '*' => $left * $right,
+            '/' => $left / $right,
+            '%' => $left % $right,
             '=' => $left === $right,
             '!=' => $left !== $right,
             '>' => $left > $right,

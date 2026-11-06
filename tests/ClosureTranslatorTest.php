@@ -10,6 +10,25 @@ use PHPUnit\Framework\TestCase;
 
 final class ClosureTranslatorTest extends TestCase
 {
+    public function testArithmeticBuildsNestedBinaryExpressionsAndExecutes(): void
+    {
+        $orders = Queryable::from(new InMemoryQueryProvider(['orders' => [
+            (object) ['id' => 1, 'total' => 25, 'tax' => 5],
+            (object) ['id' => 2, 'total' => 20, 'tax' => 3],
+            (object) ['id' => 3, 'total' => 40, 'tax' => 2],
+        ]]), 'orders');
+        $query = $orders->where(fn($o) => $o->total + $o->tax >= 30);
+        $predicate = $query->expression()->arguments['predicate'];
+        self::assertSame('>=', $predicate->operator);
+        self::assertInstanceOf(\Light\Linq\Expressions\BinaryExpression::class, $predicate->left);
+        self::assertSame('+', $predicate->left->operator);
+        self::assertSame([1, 3], $query->select(fn($o) => $o->id)->toArray());
+        self::assertSame([35, 26, 44], $orders->select(fn($o) => $o->total + $o->tax * 2)->toArray());
+        self::assertSame([60, 46, 84], $orders->select(fn($o) => ($o->total + $o->tax) * 2)->toArray());
+        self::assertSame([10, 8.5, 19], $orders->select(fn($o) => ($o->total - $o->tax) / 2)->toArray());
+        self::assertSame([0, 2, 0], $orders->select(fn($o) => $o->total % $o->tax)->toArray());
+    }
+
     private function users(): Queryable
     {
         return Queryable::from(new InMemoryQueryProvider([

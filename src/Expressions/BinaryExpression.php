@@ -11,7 +11,7 @@ final readonly class BinaryExpression implements ValueExpression
         public string $operator,
         public ValueExpression $right,
     ) {
-        if (!in_array($operator, ['=', '!=', '>', '>=', '<', '<='], true)) {
+        if (!in_array($operator, ['=', '!=', '>', '>=', '<', '<=', '+', '-', '*', '/', '%'], true)) {
             throw new \InvalidArgumentException("Unsupported binary operator: {$operator}");
         }
     }
