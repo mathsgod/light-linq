@@ -675,3 +675,9 @@ method chains inside the closure, such as `$roles->where(...)->any()`, are not
 translated; construct that query beforehand. Inline predicates follow the same
 restricted syntax as other query closures, and unsupported operations throw
 `ClosureTranslationException` during query construction.
+
+`IQueryable::any()` accepts either a `ValueExpression`, a query closure, or null.
+When called directly it executes the query and returns a boolean. A `contains()`
+or `any()` call appearing inside a translated closure is instead represented as
+an expression node; the captured receiver can be any implementation of
+`IQueryable`, including an ORM's entity set.

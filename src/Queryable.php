@@ -241,7 +241,7 @@ final readonly class Queryable implements IQueryable
         return $this->queryProvider->execute($this->terminal('count'));
     }
 
-    public function any(?ValueExpression $predicate = null): bool
+    public function any(ValueExpression|\Closure|null $predicate = null): bool
     {
         $query = $predicate === null ? $this : $this->where($predicate);
         return $this->queryProvider->execute($query->terminal('any'));
