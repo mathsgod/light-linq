@@ -4,6 +4,13 @@ An experimental LINQ-style query library for PHP 8.3+. Unlike callback-only
 collection wrappers, a query is represented by an expression tree and executed
 by a query provider.
 
+## v1.2.0
+
+This release adds arithmetic, null coalescing, full conditional expressions,
+literal string matching, and supported string/numeric scalar functions to
+query closures. See [Closure translation](docs/closure-translation.md) and
+[the changelog](CHANGELOG.md) for supported syntax and provider requirements.
+
 ## 使用文件
 
 繁體中文使用指南：[docs/README.md](docs/README.md)。包含安裝入門、Enumerable、分組與 join、Queryable／Expr、集合類別範例；XML 文件已移至 light-xml。
