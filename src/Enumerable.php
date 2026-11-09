@@ -70,6 +70,75 @@ class Enumerable implements IEnumerable
         }, static fn (): int => $count);
     }
 
+    /** @return IEnumerable<int|float> */
+    public static function sequence(int|float $start, int|float $endInclusive, int|float $step): IEnumerable
+    {
+        self::assertFiniteNumbers($start, $endInclusive, $step);
+        if (($step > 0 && $endInclusive < $start)
+            || ($step < 0 && $endInclusive > $start)
+            || ($step == 0 && $start != $endInclusive)
+        ) {
+            throw new \InvalidArgumentException('The step must move towards the end of the sequence.');
+        }
+        return new self(static function () use ($start, $endInclusive, $step): iterable {
+            $current = $start;
+            while (true) {
+                yield $current;
+                if ($current == $endInclusive) {
+                    return;
+                }
+                $next = self::nextSequenceValue($current, $step);
+                if ($next === null || ($step > 0 ? $next > $endInclusive : $next < $endInclusive)) {
+                    return;
+                }
+                $current = $next;
+            }
+        });
+    }
+
+    /** @return IEnumerable<int|float> */
+    public static function infiniteSequence(int|float $start, int|float $step): IEnumerable
+    {
+        self::assertFiniteNumbers($start, $step);
+        return new self(static function () use ($start, $step): iterable {
+            $current = $start;
+            while (true) {
+                yield $current;
+                if ($step == 0) {
+                    continue;
+                }
+                $current = self::nextSequenceValue($current, $step)
+                    ?? throw new \OverflowException('The sequence cannot advance within the PHP numeric range and precision.');
+            }
+        });
+    }
+
+    private static function assertFiniteNumbers(int|float ...$values): void
+    {
+        foreach ($values as $value) {
+            if (is_float($value) && !is_finite($value)) {
+                throw new \InvalidArgumentException('Sequence arguments must be finite numbers.');
+            }
+        }
+    }
+
+    private static function nextSequenceValue(int|float $current, int|float $step): int|float|null
+    {
+        if (is_int($current) && is_int($step)
+            && (($step > 0 && $current > PHP_INT_MAX - $step)
+                || ($step < 0 && $current < PHP_INT_MIN - $step))
+        ) {
+            return null;
+        }
+        $next = $current + $step;
+        if ((is_float($next) && !is_finite($next))
+            || ($step > 0 ? $next <= $current : $next >= $current)
+        ) {
+            return null;
+        }
+        return $next;
+    }
+
     /** @template TElement @param TElement $value @return IEnumerable<TElement> */
     public static function repeat(mixed $value, int $count): IEnumerable
     {
@@ -141,32 +210,45 @@ class Enumerable implements IEnumerable
 
     public function select(callable $selector): IEnumerable
     {
+        $selector = self::indexedCallback($selector);
         $source = $this;
         return new self(static function () use ($source, $selector): iterable {
+            $index = 0;
             foreach ($source as $item) {
-                yield $selector($item);
+                yield $selector($item, $index++);
             }
         });
     }
 
     public function where(callable $predicate): IEnumerable
     {
+        $predicate = self::indexedCallback($predicate);
         $source = $this;
         return new self(static function () use ($source, $predicate): iterable {
+            $index = 0;
             foreach ($source as $item) {
-                if ($predicate($item)) {
+                if ($predicate($item, $index++)) {
                     yield $item;
                 }
             }
         });
     }
 
-    public function selectMany(callable $selector): IEnumerable
+    public function selectMany(callable $selector, ?callable $resultSelector = null): IEnumerable
     {
+        $selector = self::indexedCallback($selector);
         $source = $this;
-        return new self(static function () use ($source, $selector): iterable {
+        return new self(static function () use ($source, $selector, $resultSelector): iterable {
+            $index = 0;
             foreach ($source as $item) {
-                yield from $selector($item);
+                $inner = $selector($item, $index++);
+                if ($resultSelector === null) {
+                    yield from $inner;
+                    continue;
+                }
+                foreach ($inner as $innerItem) {
+                    yield $resultSelector($item, $innerItem);
+                }
             }
         });
     }
@@ -288,11 +370,14 @@ class Enumerable implements IEnumerable
 
     public function skipWhile(callable $predicate): IEnumerable
     {
+        $predicate = self::indexedCallback($predicate);
         $source = $this;
         return new self(static function () use ($source, $predicate): iterable {
             $yielding = false;
+            $index = 0;
             foreach ($source as $item) {
-                $yielding = $yielding || !$predicate($item);
+                $yielding = $yielding || !$predicate($item, $index);
+                ++$index;
                 if ($yielding) {
                     yield $item;
                 }
@@ -302,10 +387,12 @@ class Enumerable implements IEnumerable
 
     public function takeWhile(callable $predicate): IEnumerable
     {
+        $predicate = self::indexedCallback($predicate);
         $source = $this;
         return new self(static function () use ($source, $predicate): iterable {
+            $index = 0;
             foreach ($source as $item) {
-                if (!$predicate($item)) {
+                if (!$predicate($item, $index++)) {
                     return;
                 }
                 yield $item;
@@ -993,6 +1080,19 @@ class Enumerable implements IEnumerable
             throw new \UnderflowException('The sequence contains no elements.');
         }
         return $returnItem ? $bestItem : $bestKey;
+    }
+
+    /** @return Closure(mixed, int): mixed */
+    private static function indexedCallback(callable $callback): Closure
+    {
+        $closure = Closure::fromCallable($callback);
+        $reflection = new \ReflectionFunction($closure);
+        if (!$reflection->isInternal()
+            && ($reflection->getNumberOfParameters() >= 2 || $reflection->isVariadic())
+        ) {
+            return $closure;
+        }
+        return static fn (mixed $item, int $index): mixed => $closure($item);
     }
 
     private static function assertNonNegative(int $count): void

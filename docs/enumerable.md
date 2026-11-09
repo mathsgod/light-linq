@@ -4,7 +4,7 @@
 
 本篇使用 PHP callback，適用於記憶體內的 iterable。範例先載入專案 Composer autoloader。
 
-## 建立序列：empty、range、repeat
+## 建立序列：empty、range、repeat、sequence、infiniteSequence
 
 ```php
 use Light\Linq\Enumerable;
@@ -24,6 +24,27 @@ $nulls = Enumerable::repeat(null, 2)->toArray(); // [null, null]
 | `Enumerable::empty()` | 建立空序列 |
 | `Enumerable::range($start, $count)` | 由 start 開始，每次加 1，共 count 個整數 |
 | `Enumerable::repeat($value, $count)` | 將同一個值重複 count 次 |
+| `Enumerable::sequence($start, $endInclusive, $step)` | 按步長產生有限數值序列，包含可到達的終點 |
+| `Enumerable::infiniteSequence($start, $step)` | 按步長持續產生數值，通常配合 `take()` |
+
+```php
+Enumerable::sequence(2, 10, 2)->toArray(); // [2, 4, 6, 8, 10]
+Enumerable::sequence(10, 2, -3)->toArray(); // [10, 7, 4]
+Enumerable::sequence(0.0, 1.0, 0.25)->toArray(); // [0.0, 0.25, 0.5, 0.75, 1.0]
+Enumerable::infiniteSequence(10, 5)->take(4)->toArray(); // [10, 15, 20, 25]
+```
+
+兩個新方法接受 PHP `int|float`，延遲逐項相加，可以重複列舉；不是 .NET 泛型數值運算。
+整數與浮點數混合時沿用 PHP 加法型別規則；浮點數採原生精度，不額外四捨五入或
+補上未到達的終點。NaN／正負 infinity 在建立序列時拋出 `InvalidArgumentException`。
+`sequence()` 的步長必須朝向終點，否則立即拋出 `InvalidArgumentException`；
+起終點相等時只產生起點一次，並容許零步長。`infiniteSequence()` 的零步長則持續重複起點。
+
+有限序列在到達終點、下一項越界、整數溢位、浮點溢位或精度不足以再前進時停止。
+無限序列在要求下一項時，若數值溢位或非零步長無法再前進，拋出 `OverflowException`，
+不會將整數溢位默默轉成 float。`take()` 不計算不需要的下一項。
+無限來源不要直接 `toArray()`／`count()`；請先以 `take()` 等操作限制。
+這兩個方法的 `tryGetNonEnumeratedCount()` 目前保守回報未知。
 
 `range()` 第二個參數是數量，不是終點，與 PHP 原生 `range()` 的參數意思不同。range／repeat 的 count 為 0 時回傳空序列，負數則在呼叫方法時立即拋出 `InvalidArgumentException`。range 使用 PHP 平台整數範圍（`PHP_INT_MIN` 至 `PHP_INT_MAX`），最後一個值超出上限亦會立即拋出 `InvalidArgumentException`，不會轉成 float。
 
@@ -62,7 +83,7 @@ $labels = Enumerable::from(['Ada', 'Bob', 'Cat'])->index()
 空來源回傳空序列，來源例外直接傳出。
 
 Queryable 可先呼叫 `asEnumerable()` 再 `index()`，為 provider 結果在 PHP 端編號；
-需要固定次序時，請先明確排序。本方法不改變 `select()`／`where()` 的 callback 參數。
+需要固定次序時，請先明確排序。`index()` 將位置包裝成元素；亦可使用下述雙參數 callback。
 
 ## 篩選、投影與攤平
 
@@ -76,6 +97,39 @@ $flat = Enumerable::from([[1, 2], [3]])
 ```
 
 `select()` 每個元素產生一個結果；`selectMany()` 的 callback 必須回傳 iterable，會將這些序列攤平成一條序列。
+
+`selectMany($selector, ?callable $resultSelector = null)` 可另外提供 result selector，
+接收原本的外層元素及目前內層元素，直接組合結果：
+
+```php
+$people->selectMany(
+    fn ($person) => $person['hobbies'],
+    fn ($person, $hobby) => $person['name'].': '.$hobby,
+)->toArray();
+```
+
+第一個 selector 仍可接收外層 index；result selector 則接收 `(outer, inner)`。
+每次只攤平一層，空內層不產生結果，重複及 null 元素保留。支援內層 Generator，
+逐項串流處理，`take()` 可提早停止；不提供 result selector 時維持原本攤平行為。
+
+`select()`、`where()`、`selectMany()`、`skipWhile()`、`takeWhile()` 支援
+`fn ($value, $index) => ...`。index 是目前操作來源的位置，由 0 開始，不是 PHP array key；
+每次列舉重新編號，串接下一個操作亦重新編號。`selectMany()` 編的是外層元素，
+即使某個元素展開成空序列仍佔一個位置。`skipWhile()` 在第一次 false 後不再呼叫 predicate；
+`takeWhile()` 在第一次 false 時停止。
+
+```php
+Enumerable::from(['Ada', 'Bob', 'Cara'])
+    ->where(fn ($name, $index) => $index % 2 === 0)
+    ->select(fn ($name, $index) => "$index: $name")
+    ->toArray(); // ['0: Ada', '1: Cara']
+```
+
+單參數 callback 維持原有用法。自訂 callback 宣告第二個參數（包括可選參數），
+或使用 variadic 時會收到 index。PHP 內建函式／方法（包括 first-class callable）
+維持只傳元素，避免改變 `trim()` 等函式的可選參數含義；需要 index 請用 closure 包裝。
+所有 callback 延遲至列舉才執行。本功能屬於 Enumerable；Queryable closure 翻譯仍只接受單一 row 參數，
+需要 indexed callback 請先 `asEnumerable()`。
 
 ## 型別篩選與檢查
 

@@ -25,14 +25,20 @@ interface IEnumerable extends IteratorAggregate, Countable
     /** @return IEnumerable<array{index: int, value: T}> */
     public function index(): IEnumerable;
 
-    /** @template TResult @param callable(T): TResult $selector @return IEnumerable<TResult> */
+    /** @template TResult @param (callable(T): TResult)|(callable(T, int): TResult) $selector @return IEnumerable<TResult> */
     public function select(callable $selector): IEnumerable;
 
-    /** @param callable(T): bool $predicate @return IEnumerable<T> */
+    /** @param (callable(T): bool)|(callable(T, int): bool) $predicate @return IEnumerable<T> */
     public function where(callable $predicate): IEnumerable;
 
-    /** @template TResult @param callable(T): iterable<TResult> $selector @return IEnumerable<TResult> */
-    public function selectMany(callable $selector): IEnumerable;
+    /**
+     * @template TInner
+     * @template TResult
+     * @param (callable(T): iterable<TInner>)|(callable(T, int): iterable<TInner>) $selector
+     * @param (callable(T, TInner): TResult)|null $resultSelector
+     * @return IEnumerable<TInner|TResult>
+     */
+    public function selectMany(callable $selector, ?callable $resultSelector = null): IEnumerable;
 
     /**
      * @template TKey
@@ -87,10 +93,10 @@ interface IEnumerable extends IteratorAggregate, Countable
     /** @return IEnumerable<T> */
     public function take(int $count): IEnumerable;
 
-    /** @param callable(T): bool $predicate @return IEnumerable<T> */
+    /** @param (callable(T): bool)|(callable(T, int): bool) $predicate @return IEnumerable<T> */
     public function skipWhile(callable $predicate): IEnumerable;
 
-    /** @param callable(T): bool $predicate @return IEnumerable<T> */
+    /** @param (callable(T): bool)|(callable(T, int): bool) $predicate @return IEnumerable<T> */
     public function takeWhile(callable $predicate): IEnumerable;
 
     /** @return IEnumerable<T> */
