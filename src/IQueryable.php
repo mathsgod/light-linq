@@ -20,6 +20,9 @@ interface IQueryable extends IteratorAggregate
     public function distinct(): self;
     public function distinctBy(ValueExpression|\Closure $keySelector): self;
     public function countBy(ValueExpression|\Closure $keySelector): self;
+    /** Accumulator fields use accumulator and item; result selector uses result. */
+    public function aggregate(ValueExpression|\Closure $accumulator, mixed $seed = null, ValueExpression|\Closure|null $resultSelector = null): mixed;
+    public function aggregateBy(ValueExpression|\Closure $keySelector, mixed $seed, ValueExpression|\Closure $accumulator): self;
     /** The second query must select keys, not complete rows. */
     public function exceptBy(IQueryable $second, ValueExpression|\Closure $keySelector): self;
     /** The second query must select keys, not complete rows. */

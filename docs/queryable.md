@@ -8,6 +8,57 @@
 Closure 透過原始碼 AST 翻譯，不會像 `Enumerable` 的 callback 一樣逐筆呼叫。
 排序、分組、聚合、取值條件及 join key 亦支援受限制的單參數 closure，詳見下表。
 
+## 轉成 Queryable 與自訂累加
+
+`Queryable::asQueryable(iterable $source)` 建立使用 `InMemoryQueryProvider` 的查詢；
+已有 `IQueryable` 則直接回傳本身，保留 provider。Enumerable 亦可呼叫 `->asQueryable()`。
+轉換不列舉、不複製或快取來源，可重複列舉性仍由原來源決定，單次 Generator 不會變成可重播集合。
+各次獨立轉換會建立各自的 provider；需要同 provider 多來源查詢時，使用共用的
+`InMemoryQueryProvider` 配合 `Queryable::from()`。
+
+```php
+$numbers = Queryable::asQueryable([1, 2, 3]);
+$orders = Enumerable::from($rows)->asQueryable();
+```
+
+`aggregate($accumulator, $seed = null, $resultSelector = null)` 是立即執行的終結操作。
+累加 closure 接收 `(accumulator, item)`；省略 seed 時用第一項作初值，空來源拋出
+`UnderflowException`；明確傳入 seed（包括 null）時，每項均交給 accumulator，空來源回傳 seed。
+可選 result selector 接收最終累加值，執行最後一次投影：
+
+```php
+$sum = $numbers->aggregate(fn ($acc, $item) => $acc + $item); // 6
+$total = $orders->aggregate(fn ($acc, $order) => $acc + $order->amount, 0);
+$summary = $orders->aggregate(
+    fn ($acc, $order) => ['sum' => $acc->sum + $order->amount, 'count' => $acc->count + 1],
+    seed: ['sum' => 0, 'count' => 0],
+    resultSelector: fn ($acc) => ['total' => $acc->sum, 'count' => $acc->count],
+);
+```
+
+`aggregateBy($keySelector, $seed, $accumulator)` 按 key 累加，回傳延遲執行的 Queryable。
+每個新 key 使用同一 seed 值作初值，第一筆亦會執行 accumulator。結果為
+`KeyValuePair(key, value)`，可以繼續投影、排序及篩選：
+
+```php
+$totals = $orders->aggregateBy(
+    fn ($order) => $order->city,
+    0,
+    fn ($sum, $order) => $sum + $order->amount,
+)->select(Expr::projection(['city' => 'key', 'total' => 'value']))->toArray();
+```
+
+key selector 接受單參數 closure；accumulator 必須有兩個普通參數；result selector 有一個。
+這些 closure 均由 AST 翻譯，不會直接當 PHP callback 呼叫；支援現有算術、條件、投影及函式子集，
+不支援賦值或迴圈。複合累加狀態可用具名 array seed／projection，在 closure 用 property path 讀取。
+也可直接提供 `ValueExpression`：accumulator 用 `accumulator`／`item.*` 欄位，
+result selector 用 `result`／`result.*`，aggregateBy key selector 相對來源元素。
+
+記憶體 provider 的 aggregateBy 沿用 Enumerable 嚴格 key equality，包含 null key；
+群組依 key 首次出現排序，空來源沒有結果。第一項輸出前讀完整個來源，但只保留各 key 的累加狀態。
+seed 不會 clone 物件；如需要各組獨立的複合值，使用 array。此版本提供固定 seed，尚未提供 seed factory。
+SQL／自訂 provider 需要支援 `aggregate`／`aggregateBy` expression；沒有自動 client-side fallback。
+
 ## 自動翻譯 selector 與 predicate
 
 下列參數可傳入 `ValueExpression` 或 PHP `Closure`；closure 在建立查詢或呼叫終結操作時

@@ -1,5 +1,8 @@
 # Enumerable 集合查詢
 
+可呼叫 `$items->asQueryable()` 將 Enumerable 包裝為記憶體 Queryable；轉換不列舉來源，
+後續 closure 會按 Queryable 的受限制語法翻譯。亦可用 `Queryable::asQueryable($iterable)`。
+
 [文件目錄](README.md) · [分組與 join](grouping-and-joins.md)
 
 本篇使用 PHP callback，適用於記憶體內的 iterable。範例先載入專案 Composer autoloader。

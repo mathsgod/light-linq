@@ -65,6 +65,12 @@ final class InMemoryQueryProvider implements IQueryProvider
         $source = $this->execute($expression->source);
 
         return match ($expression->method) {
+            'aggregate' => $this->aggregateRows($source, $expression),
+            'aggregateBy' => Enumerable::from($source)->aggregateBy(
+                fn (mixed $row): mixed => $this->evaluate($expression->arguments['keySelector'], $row),
+                $expression->arguments['seed'],
+                fn (mixed $accumulator, mixed $item): mixed => $this->evaluate($expression->arguments['accumulator'], ['accumulator' => $accumulator, 'item' => $item]),
+            ),
             'countBy' => Enumerable::from($source)->countBy(
                 fn (mixed $row): mixed => $this->evaluate($expression->arguments['keySelector'], $row),
             ),
@@ -107,6 +113,17 @@ final class InMemoryQueryProvider implements IQueryProvider
             'first' => $this->first($source),
             default => throw new \LogicException("Unsupported query method: {$expression->method}"),
         };
+    }
+
+    private function aggregateRows(iterable $source, MethodCallExpression $expression): mixed
+    {
+        $arguments = $expression->arguments;
+        $accumulator = fn (mixed $accumulator, mixed $item): mixed => $this->evaluate(
+            $arguments['accumulator'], ['accumulator' => $accumulator, 'item' => $item],
+        );
+        $sequence = Enumerable::from($source);
+        $result = $arguments['hasSeed'] ? $sequence->aggregate($accumulator, $arguments['seed']) : $sequence->aggregate($accumulator);
+        return $arguments['resultSelector'] === null ? $result : $this->evaluate($arguments['resultSelector'], ['result' => $result]);
     }
 
     private function keyRows(iterable $source, MethodCallExpression $expression): \Generator

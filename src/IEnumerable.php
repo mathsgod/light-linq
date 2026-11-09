@@ -166,6 +166,9 @@ interface IEnumerable extends IteratorAggregate, Countable
     /** @return IEnumerable<T> */
     public function asEnumerable(): IEnumerable;
 
+    /** @return IQueryable<T> */
+    public function asQueryable(): IQueryable;
+
     /** @param callable(T): bool|null $predicate */
     public function any(?callable $predicate = null): bool;
 

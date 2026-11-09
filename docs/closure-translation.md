@@ -12,6 +12,11 @@ Translator 讀取 closure 所在的 PHP 原始檔，解析 AST，再建立 expre
 
 ## 寫法與 expression tree
 
+Queryable `aggregate()`／`aggregateBy()` 的 accumulator 亦使用此 translator，
+接收兩個普通參數 `(accumulator, item)`；aggregate 的可選 result selector 接收一個最終結果參數。
+參數會映射到 `accumulator`／`item`／`result` 欄位 expression，亦可在支援的 `any()` 子查詢內引用。
+這些參數不是 index；不接受 by-reference／variadic。aggregateBy 的 key selector 仍接受一個 row 參數。
+
 ```php
 $orders->where(fn($o) => $o->total + $o->tax >= 30);
 $customers->where(fn($c) => str_starts_with($c->name, 'a'));

@@ -606,6 +606,11 @@ class Enumerable implements IEnumerable
         return $this;
     }
 
+    public function asQueryable(): IQueryable
+    {
+        return Queryable::asQueryable($this);
+    }
+
     public function longCount(?callable $predicate = null): int
     {
         return $this->count($predicate);

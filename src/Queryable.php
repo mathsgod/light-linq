@@ -24,6 +24,34 @@ final readonly class Queryable implements IQueryable
         return new self($provider, new SourceExpression($source));
     }
 
+    public static function asQueryable(iterable $source): IQueryable
+    {
+        if ($source instanceof IQueryable) {
+            return $source;
+        }
+        return self::from(new InMemoryQueryProvider(['source' => $source]), 'source');
+    }
+
+    public function aggregate(ValueExpression|\Closure $accumulator, mixed $seed = null, ValueExpression|\Closure|null $resultSelector = null): mixed
+    {
+        $accumulator = $accumulator instanceof \Closure
+            ? ClosureTranslator::translate($accumulator, $this->queryProvider, parameterPaths: ['accumulator', 'item']) : $accumulator;
+        $resultSelector = $resultSelector instanceof \Closure
+            ? ClosureTranslator::translate($resultSelector, $this->queryProvider, parameterPaths: ['result']) : $resultSelector;
+        return $this->queryProvider->execute(new MethodCallExpression($this->queryExpression, 'aggregate', [
+            'accumulator' => $accumulator, 'seed' => $seed, 'hasSeed' => func_num_args() >= 2,
+            'resultSelector' => $resultSelector,
+        ]));
+    }
+
+    public function aggregateBy(ValueExpression|\Closure $keySelector, mixed $seed, ValueExpression|\Closure $accumulator): self
+    {
+        $keySelector = $keySelector instanceof \Closure ? ClosureTranslator::translate($keySelector, $this->queryProvider) : $keySelector;
+        $accumulator = $accumulator instanceof \Closure
+            ? ClosureTranslator::translate($accumulator, $this->queryProvider, parameterPaths: ['accumulator', 'item']) : $accumulator;
+        return $this->call('aggregateBy', ['keySelector' => $keySelector, 'seed' => $seed, 'accumulator' => $accumulator]);
+    }
+
     public function expression(): Expression
     {
         return $this->queryExpression;
