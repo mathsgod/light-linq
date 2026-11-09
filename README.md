@@ -4,12 +4,15 @@ An experimental LINQ-style query library for PHP 8.3+. Unlike callback-only
 collection wrappers, a query is represented by an expression tree and executed
 by a query provider.
 
-## v1.2.0
+## v1.3.0
 
-This release adds arithmetic, null coalescing, full conditional expressions,
-literal string matching, and supported string/numeric scalar functions to
-query closures. See [Closure translation](docs/closure-translation.md) and
-[the changelog](CHANGELOG.md) for supported syntax and provider requirements.
+This release expands Enumerable and Queryable with indexed closures, numeric
+sequence creation, type filtering, key-based set operations, right joins, element
+access and custom aggregation. It also adds deferred `asQueryable()` conversion
+and fixes nonpositive paging and nullable averages.
+
+See the [changelog](CHANGELOG.md) and [Queryable guide](docs/queryable.md) for
+supported APIs, compatibility notes and SQL/custom provider requirements.
 
 ## 使用文件
 
