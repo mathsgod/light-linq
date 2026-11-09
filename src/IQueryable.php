@@ -87,6 +87,8 @@ interface IQueryable extends IteratorAggregate
 
     public function count(): int;
 
+    public function longCount(ValueExpression|\Closure|null $predicate = null): int;
+
     public function any(ValueExpression|\Closure|null $predicate = null): bool;
 
     public function first(?ValueExpression $predicate = null): mixed;

@@ -16,6 +16,12 @@ use Traversable;
 /** @template T @extends IteratorAggregate<int, T> */
 interface IEnumerable extends IteratorAggregate, Countable
 {
+    /** @return IEnumerable<mixed> */
+    public function cast(string $type): IEnumerable;
+
+    /** @return IEnumerable<mixed> */
+    public function ofType(string $type): IEnumerable;
+
     /** @return IEnumerable<array{index: int, value: T}> */
     public function index(): IEnumerable;
 
@@ -61,6 +67,12 @@ interface IEnumerable extends IteratorAggregate, Countable
      * @return IOrderedEnumerable<T>
      */
     public function orderBy(callable $keySelector, ?callable $comparer = null): IOrderedEnumerable;
+
+    /** @param (callable(T, T): int)|null $comparer @return IOrderedEnumerable<T> */
+    public function order(?callable $comparer = null): IOrderedEnumerable;
+
+    /** @param (callable(T, T): int)|null $comparer @return IOrderedEnumerable<T> */
+    public function orderDescending(?callable $comparer = null): IOrderedEnumerable;
 
     /**
      * @param callable(T): mixed $keySelector
@@ -136,6 +148,15 @@ interface IEnumerable extends IteratorAggregate, Countable
 
     /** @param callable(T): bool|null $predicate */
     public function count(?callable $predicate = null): int;
+
+    /** @param (callable(T): bool)|null $predicate */
+    public function longCount(?callable $predicate = null): int;
+
+    /** Returns false and sets $count to 0 when the count is not known without enumeration. */
+    public function tryGetNonEnumeratedCount(?int &$count): bool;
+
+    /** @return IEnumerable<T> */
+    public function asEnumerable(): IEnumerable;
 
     /** @param callable(T): bool|null $predicate */
     public function any(?callable $predicate = null): bool;

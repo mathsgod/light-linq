@@ -77,7 +77,45 @@ $flat = Enumerable::from([[1, 2], [3]])
 
 `select()` 每個元素產生一個結果；`selectMany()` 的 callback 必須回傳 iterable，會將這些序列攤平成一條序列。
 
+## 型別篩選與檢查
+
+`ofType(string $type)` 只保留符合型別的元素；`cast(string $type)` 要求每個元素
+符合型別，否則在列舉到該元素時拋出 `UnexpectedValueException`。不進行強制轉值，
+例如字串 `'1'` 不符合 `int`，整數 `1` 亦不符合 `float`。
+
+```php
+Enumerable::from([1, '2', null, 3])->ofType('int')->toArray(); // [1, 3]
+$customers = $items->ofType(Customer::class); // 包括子類別
+$checked = $items->cast(Customer::class); // 列舉時檢查
+$implementations = $items->ofType(Countable::class); // 支援 interface
+```
+
+支援 class／interface 名稱及 `int`、`float`、`string`、`bool`、`array`、`object`、
+`iterable`、`callable`、`resource`。基本型別名稱使用上述小寫寫法；不支援 union、
+nullable、`mixed` 或 trait 名稱。無效型別在建立操作時拋出 `InvalidArgumentException`。
+兩個方法均延遲讀取來源，不複製物件、不快取結果。
+
+PHP 版本採非 nullable 型別檢查：`ofType()` 略過 null，`cast()` 遇到 null 拋錯。
+這與 .NET `Cast<T>()` 對 reference／nullable 型別可以保留 null 的行為不同。
+Queryable 請先 `asEnumerable()`，再於 PHP 端使用這兩個方法。
+
 ## 排序與分頁
+
+`asEnumerable()` 回傳目前的 `IEnumerable` 本身，不列舉、不複製亦不快取來源。
+`longCount(?callable $predicate = null)` 與 `count()` 使用相同計數邏輯，支援條件。
+兩者回傳 PHP `int`；64-bit PHP 的 `int` 為 64-bit，32-bit PHP 不會因此獲得
+64-bit 計數能力。
+
+`order()`／`orderDescending()` 直接按元素本身升序／降序排序，接受可選的
+`?callable $comparer = null`，結果可接 `thenBy()`／`thenByDescending()`。
+預設比較沿用 PHP `<=>`，亦沿用現有排序的延遲執行及穩定性。
+
+```php
+Enumerable::from([3, 1, 2])->order()->toArray(); // [1, 2, 3]
+Enumerable::from([3, 1, 2])->orderDescending()->toArray(); // [3, 2, 1]
+Enumerable::from(['file10', 'file2'])->order(comparer: 'strnatcmp')->toArray();
+// ['file2', 'file10']
+```
 
 ```php
 $rows = Enumerable::from([
@@ -203,6 +241,24 @@ $differentType = Enumerable::from([1])->sequenceEqual(['1']); // false
 這些方法不會替來源增加快取能力；如需重複列舉 Generator，請參考[延遲執行與來源重播](getting-started.md)。這批 API 屬於 `Enumerable`；provider 查詢可先 `asEnumerable()` 再使用。
 
 ## 計數與聚合
+
+`tryGetNonEnumeratedCount(?int &$count): bool` 嘗試在不列舉來源的情況下取得數量。
+成功回傳 `true` 並設定數量（包括零）；未知時回傳 `false` 並將 `$count` 設為 `0`。
+
+```php
+$items = Enumerable::from([1, 2, 3]);
+$count = null;
+if ($items->tryGetNonEnumeratedCount($count)) {
+    echo $count; // 3
+}
+```
+
+目前支援 array、`empty()`、`range()`、`repeat()`，以及經 `from()` 包裝的
+`GenericList`、`HashSet`、`Dictionary`、`Grouping`、`Lookup`。可變集合在每次呼叫時
+讀取最新數量；Lookup 計算群組數。`asEnumerable()` 保留原本資訊。
+其他來源及衍生 pipeline（包括 `select()`、`where()`、排序）保守回報未知，
+不執行 callback 或讀取 generator／provider。任意 `Countable` 不會被自動信任，
+因為其 `count()` 可能遍歷來源。需要實際計數時另行呼叫 `count()`。
 
 ```php
 $count = $numbers->count(); // 4

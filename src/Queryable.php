@@ -236,6 +236,12 @@ final readonly class Queryable implements IQueryable
         ));
     }
 
+    public function longCount(ValueExpression|\Closure|null $predicate = null): int
+    {
+        $query = $predicate === null ? $this : $this->where($predicate);
+        return $query->count();
+    }
+
     public function count(): int
     {
         return $this->queryProvider->execute($this->terminal('count'));

@@ -20,7 +20,7 @@ class Enumerable implements IEnumerable
     private readonly Closure $factory;
 
     /** @param callable(): iterable<T> $factory */
-    protected function __construct(callable $factory)
+    protected function __construct(callable $factory, private readonly ?Closure $countFactory = null)
     {
         $this->factory = Closure::fromCallable($factory);
     }
@@ -31,7 +31,17 @@ class Enumerable implements IEnumerable
         if ($source instanceof IEnumerable) {
             return $source;
         }
-        return new self(static fn (): iterable => $source);
+        $countFactory = null;
+        if (is_array($source)
+            || $source instanceof GenericList
+            || $source instanceof HashSet
+            || $source instanceof Dictionary
+            || $source instanceof Grouping
+            || $source instanceof Lookup
+        ) {
+            $countFactory = static fn (): int => count($source);
+        }
+        return new self(static fn (): iterable => $source, $countFactory);
     }
 
     /** @template TSource @param callable(): iterable<TSource> $factory @return IEnumerable<TSource> */
@@ -43,7 +53,7 @@ class Enumerable implements IEnumerable
     /** @return IEnumerable<never> */
     public static function empty(): IEnumerable
     {
-        return new self(static fn (): iterable => []);
+        return new self(static fn (): iterable => [], static fn (): int => 0);
     }
 
     /** @return IEnumerable<int> */
@@ -57,7 +67,7 @@ class Enumerable implements IEnumerable
             for ($offset = 0; $offset < $count; ++$offset) {
                 yield $start + $offset;
             }
-        });
+        }, static fn (): int => $count);
     }
 
     /** @template TElement @param TElement $value @return IEnumerable<TElement> */
@@ -68,7 +78,7 @@ class Enumerable implements IEnumerable
             for ($index = 0; $index < $count; ++$index) {
                 yield $value;
             }
-        });
+        }, static fn (): int => $count);
     }
 
     public function getIterator(): Traversable
@@ -87,6 +97,46 @@ class Enumerable implements IEnumerable
                 ++$index;
             }
         });
+    }
+
+    public function cast(string $type): IEnumerable
+    {
+        $matches = self::typeMatcher($type);
+        return $this->select(static function (mixed $item) use ($matches, $type): mixed {
+            if (!$matches($item)) {
+                throw new \UnexpectedValueException('Expected '.$type.', got '.get_debug_type($item).'.');
+            }
+            return $item;
+        });
+    }
+
+    public function ofType(string $type): IEnumerable
+    {
+        return $this->where(self::typeMatcher($type));
+    }
+
+    /** @return Closure(mixed): bool */
+    private static function typeMatcher(string $type): Closure
+    {
+        $predicate = match ($type) {
+            'int' => 'is_int',
+            'float' => 'is_float',
+            'string' => 'is_string',
+            'bool' => 'is_bool',
+            'array' => 'is_array',
+            'object' => 'is_object',
+            'iterable' => 'is_iterable',
+            'callable' => 'is_callable',
+            'resource' => 'is_resource',
+            default => null,
+        };
+        if ($predicate !== null) {
+            return Closure::fromCallable($predicate);
+        }
+        if (!class_exists($type) && !interface_exists($type)) {
+            throw new \InvalidArgumentException('Unsupported element type: '.$type);
+        }
+        return static fn (mixed $item): bool => $item instanceof $type;
     }
 
     public function select(callable $selector): IEnumerable
@@ -182,6 +232,16 @@ class Enumerable implements IEnumerable
             $groups[] = ['key' => $key, 'items' => [$item]];
         }
         return [$groups, $buckets];
+    }
+
+    public function order(?callable $comparer = null): IOrderedEnumerable
+    {
+        return $this->orderBy(static fn (mixed $item): mixed => $item, $comparer);
+    }
+
+    public function orderDescending(?callable $comparer = null): IOrderedEnumerable
+    {
+        return $this->orderByDescending(static fn (mixed $item): mixed => $item, $comparer);
     }
 
     public function orderBy(callable $keySelector, ?callable $comparer = null): IOrderedEnumerable
@@ -440,6 +500,26 @@ class Enumerable implements IEnumerable
                 yield $chunk;
             }
         });
+    }
+
+    public function tryGetNonEnumeratedCount(?int &$count): bool
+    {
+        $count = 0;
+        if ($this->countFactory === null) {
+            return false;
+        }
+        $count = ($this->countFactory)();
+        return true;
+    }
+
+    public function asEnumerable(): IEnumerable
+    {
+        return $this;
+    }
+
+    public function longCount(?callable $predicate = null): int
+    {
+        return $this->count($predicate);
     }
 
     public function count(?callable $predicate = null): int

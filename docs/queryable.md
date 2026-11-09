@@ -191,6 +191,11 @@ SQL provider 仍可能在切換前載入全部結果，先用 `where()`／`take(
 
 ## 集合運算與切換到 Enumerable
 
+`longCount()` 沿用 provider 現有的 `count` 運算；可傳入 `ValueExpression` 或
+受限制 closure 作為條件，例如 `->longCount(Expr::eq(Expr::field('active'), true))`。
+它立即執行並回傳 PHP `int`，位元寬度及最大可計數範圍仍受 PHP 與 provider 限制。
+`asEnumerable()` 則延遲至列舉時執行來源查詢，後續 callback 在 PHP 端處理。
+
 ```php
 $a = $customers->select(Expr::fields('id'));
 $b = $orders->select(Expr::projection(['id' => 'customerId']));
