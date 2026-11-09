@@ -154,6 +154,15 @@ final readonly class Queryable implements IQueryable
         return $this->joinQuery('leftJoin', $inner, $outerKey, $innerKey, $resultSelector);
     }
 
+    public function rightJoin(
+        IQueryable $inner,
+        ValueExpression $outerKey,
+        ValueExpression $innerKey,
+        ValueExpression $resultSelector,
+    ): self {
+        return $this->joinQuery('rightJoin', $inner, $outerKey, $innerKey, $resultSelector);
+    }
+
     /** Result fields use outer.* and inner (an IEnumerable of matching rows). */
     public function groupJoin(
         IQueryable $inner,

@@ -105,7 +105,30 @@ $ids = $orders->select(Expr::field('customerId'))->distinct()->toArray(); // [1]
 
 複合 key 使用 `groupBy(Expr::fields('fieldA', 'fieldB'))`，再用 `Expr::key('fieldA')` 取成員。`Expr::count()` 計所有 row，`Expr::count($field)` 只計非 null 值。其他分組聚合忽略 null，全 null 時回傳 null。終結 `->count()` 則計算查詢目前產生的群組或 distinct 結果數。
 
-## Join、leftJoin 與 selectMany
+## Join、leftJoin、rightJoin 與 selectMany
+
+`rightJoin()` 保留所有右邊（inner）元素，未匹配時 `outer` 為 null。
+key selector 相對各自來源，result selector 仍使用 `outer.*`／`inner.*`：
+
+```php
+$right = $customers->rightJoin(
+    $orders,
+    Expr::field('id'),
+    Expr::field('customerId'),
+    Expr::projection(['customer' => 'outer.name', 'orderId' => 'inner.id']),
+)->toArray();
+```
+
+兩個查詢必須使用同一 provider 實例。記憶體 provider 依右邊來源順序輸出，
+每筆右邊元素的匹配依左邊來源順序輸出；保留重複資料及所有匹配組合。
+沿用 Queryable join 的關聯式 key 比較：區分 PHP 型別，null 不匹配，
+複合 key 任何成員為 null 亦不匹配。
+
+建立查詢不執行 provider；列舉時串流右邊，第一次遇到右邊元素才讀取並緩衝左邊一次。
+右邊為空時不執行左邊查詢；左邊為空時，每筆右邊元素仍產生結果。
+`take()` 可提早停止右邊列舉。SQL／自訂 provider 需要另外支援 `rightJoin` expression，
+沒有自動 client-side fallback；可先 `asEnumerable()` 再使用 Enumerable 的 `rightJoin()`。
+以上輸出順序描述適用於記憶體 provider，資料庫結果順序仍須明確排序。
 
 ```php
 $joined = $customers->join(

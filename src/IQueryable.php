@@ -57,6 +57,14 @@ interface IQueryable extends IteratorAggregate
         ValueExpression $resultSelector,
     ): self;
 
+    /** Preserve the inner (right) source; unmatched outer fields are null. */
+    public function rightJoin(
+        IQueryable $inner,
+        ValueExpression $outerKey,
+        ValueExpression $innerKey,
+        ValueExpression $resultSelector,
+    ): self;
+
     /** Result fields use outer.* and inner (an IEnumerable of matching rows). */
     public function groupJoin(
         IQueryable $inner,

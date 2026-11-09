@@ -55,6 +55,9 @@ final class InMemoryQueryProvider implements IQueryProvider
             });
             return $items;
         }
+        if ($expression->method === 'rightJoin') {
+            return $this->rightJoinRows($expression);
+        }
         $source = $this->execute($expression->source);
 
         return match ($expression->method) {
@@ -242,6 +245,26 @@ final class InMemoryQueryProvider implements IQueryProvider
         }
         $value = $this->evaluate($expression, $pair);
         return $value === null ? null : (bool) $value;
+    }
+
+    private function rightJoinRows(MethodCallExpression $expression): \Generator
+    {
+        $arguments = $expression->arguments;
+        $outer = null;
+        foreach ($this->execute($arguments['inner']) as $item) {
+            $outer ??= iterator_to_array($this->iterator($this->execute($expression->source)), false);
+            $key = $this->evaluate($arguments['innerKey'], $item);
+            $matched = false;
+            foreach ($outer as $row) {
+                if ($this->joinKeysEqual($this->evaluate($arguments['outerKey'], $row), $key)) {
+                    $matched = true;
+                    yield $this->evaluate($arguments['resultSelector'], ['outer' => $row, 'inner' => $item]);
+                }
+            }
+            if (!$matched) {
+                yield $this->evaluate($arguments['resultSelector'], ['outer' => null, 'inner' => $item]);
+            }
+        }
     }
 
     private function joinRows(iterable $source, MethodCallExpression $expression): \Generator
