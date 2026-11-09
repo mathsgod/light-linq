@@ -253,13 +253,15 @@ class Enumerable implements IEnumerable
         });
     }
 
-    public function groupBy(callable $keySelector, ?EqualityComparer $comparer = null): IEnumerable
+    public function groupBy(callable $keySelector, ?EqualityComparer $comparer = null, ?callable $resultSelector = null): IEnumerable
     {
         $source = $this;
-        return new self(static function () use ($source, $keySelector, $comparer): iterable {
+        return new self(static function () use ($source, $keySelector, $comparer, $resultSelector): iterable {
             [$groups] = self::groupLookup($source, $keySelector, $comparer ?? new DefaultEqualityComparer());
             foreach ($groups as $group) {
-                yield new Grouping($group['key'], $group['items']);
+                yield $resultSelector === null
+                    ? new Grouping($group['key'], $group['items'])
+                    : $resultSelector($group['key'], self::from($group['items']));
             }
         });
     }

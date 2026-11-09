@@ -42,11 +42,13 @@ interface IEnumerable extends IteratorAggregate, Countable
 
     /**
      * @template TKey
+     * @template TResult
      * @param callable(T): TKey $keySelector
      * @param EqualityComparer<TKey>|null $comparer
-     * @return IEnumerable<Grouping>
+     * @param (callable(TKey, IEnumerable<T>): TResult)|null $resultSelector
+     * @return IEnumerable<Grouping|TResult>
      */
-    public function groupBy(callable $keySelector, ?EqualityComparer $comparer = null): IEnumerable;
+    public function groupBy(callable $keySelector, ?EqualityComparer $comparer = null, ?callable $resultSelector = null): IEnumerable;
 
     /**
      * @template TInner

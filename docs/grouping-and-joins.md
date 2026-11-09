@@ -23,6 +23,28 @@ $orders = [
 
 ## groupBy：將單一來源分組
 
+可選的 `resultSelector` 接收 `(key, IEnumerable $members)`，直接將每組投影成結果：
+
+```php
+$summary = Enumerable::from($orders)->groupBy(
+    keySelector: fn ($order) => $order['customerId'],
+    resultSelector: fn ($customerId, $members) => [
+        'customerId' => $customerId,
+        'count' => $members->count(),
+        'total' => $members->sum(fn ($order) => $order['total']),
+    ],
+)->toArray();
+```
+
+簽名為 `groupBy($keySelector, ?EqualityComparer $comparer = null, ?callable $resultSelector = null)`；
+comparer 保留第二個參數位置，建議以 named argument 傳入 result selector。
+省略或傳入 null 時維持回傳 `Grouping`。提供 selector 時，members 是可重複列舉的
+`IEnumerable`，可使用 `count()`、`sum()`、`select()` 等方法，亦可在 callback 外保留使用。
+群組及成員沿用原有順序，自訂 comparer 相等的 key 使用首次出現的 key。
+所有處理延遲至列舉；先緩衝完整來源，再按需求對每組執行 selector，空來源不呼叫 selector。
+每次重新列舉會重新分組並投影；selector 例外直接傳出。
+此 callback 版本屬於 Enumerable；Queryable 請先 `asEnumerable()` 再使用。
+
 ```php
 $groups = Enumerable::from($orders)->groupBy(fn ($order) => $order['customerId']);
 $summaries = $groups->select(fn ($group) => [
