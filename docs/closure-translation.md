@@ -77,7 +77,11 @@ SQL 大小寫比較、整數除法及除以零的行為可能與記憶體 provid
 
 不支援的語法會在建立查詢時拋出 `ClosureTranslationException`，沒有自動 client-side
 fallback。一般 PHP callback 請放在 `Enumerable` 或 `asEnumerable()` 之後。
-`orderBy()` 等仍使用 `ValueExpression`，不能推斷所有 Queryable 方法都接受 closure。
+`orderBy()`／`orderByDescending()`／`thenBy()`／`thenByDescending()`、`groupBy()`、
+`sum()`／`average()`／`min()`／`max()`、`all()`、first／single／last 系列的 predicate，
+以及 join／leftJoin／rightJoin／groupJoin 的兩個 key selector，亦接受單參數 closure。
+這些參數不支援 index。Join／Zip 結果投影及 selectMany 的 pair predicate／result selector
+仍須顯式 `ValueExpression`；不能推斷所有 Queryable 參數都接受 closure。
 
 ## Null fallback 與條件投影
 

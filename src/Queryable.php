@@ -34,8 +34,9 @@ final readonly class Queryable implements IQueryable
         return $this->queryProvider;
     }
 
-    public function groupBy(ValueExpression $keySelector): self
+    public function groupBy(ValueExpression|\Closure $keySelector): self
     {
+        $keySelector = $keySelector instanceof \Closure ? ClosureTranslator::translate($keySelector, $this->queryProvider) : $keySelector;
         return $this->call('groupBy', ['keySelector' => $keySelector]);
     }
     public function distinct(): self
@@ -152,40 +153,48 @@ final readonly class Queryable implements IQueryable
     /** Keys are relative to each source; result fields use outer.* and inner.*. */
     public function join(
         IQueryable $inner,
-        ValueExpression $outerKey,
-        ValueExpression $innerKey,
+        ValueExpression|\Closure $outerKey,
+        ValueExpression|\Closure $innerKey,
         ValueExpression $resultSelector,
     ): self
     {
+        $outerKey = $outerKey instanceof \Closure ? ClosureTranslator::translate($outerKey, $this->queryProvider) : $outerKey;
+        $innerKey = $innerKey instanceof \Closure ? ClosureTranslator::translate($innerKey, $this->queryProvider) : $innerKey;
         return $this->joinQuery('join', $inner, $outerKey, $innerKey, $resultSelector);
     }
 
     public function leftJoin(
         IQueryable $inner,
-        ValueExpression $outerKey,
-        ValueExpression $innerKey,
+        ValueExpression|\Closure $outerKey,
+        ValueExpression|\Closure $innerKey,
         ValueExpression $resultSelector,
     ): self
     {
+        $outerKey = $outerKey instanceof \Closure ? ClosureTranslator::translate($outerKey, $this->queryProvider) : $outerKey;
+        $innerKey = $innerKey instanceof \Closure ? ClosureTranslator::translate($innerKey, $this->queryProvider) : $innerKey;
         return $this->joinQuery('leftJoin', $inner, $outerKey, $innerKey, $resultSelector);
     }
 
     public function rightJoin(
         IQueryable $inner,
-        ValueExpression $outerKey,
-        ValueExpression $innerKey,
+        ValueExpression|\Closure $outerKey,
+        ValueExpression|\Closure $innerKey,
         ValueExpression $resultSelector,
     ): self {
+        $outerKey = $outerKey instanceof \Closure ? ClosureTranslator::translate($outerKey, $this->queryProvider) : $outerKey;
+        $innerKey = $innerKey instanceof \Closure ? ClosureTranslator::translate($innerKey, $this->queryProvider) : $innerKey;
         return $this->joinQuery('rightJoin', $inner, $outerKey, $innerKey, $resultSelector);
     }
 
     /** Result fields use outer.* and inner (an IEnumerable of matching rows). */
     public function groupJoin(
         IQueryable $inner,
-        ValueExpression $outerKey,
-        ValueExpression $innerKey,
+        ValueExpression|\Closure $outerKey,
+        ValueExpression|\Closure $innerKey,
         ValueExpression $resultSelector,
     ): self {
+        $outerKey = $outerKey instanceof \Closure ? ClosureTranslator::translate($outerKey, $this->queryProvider) : $outerKey;
+        $innerKey = $innerKey instanceof \Closure ? ClosureTranslator::translate($innerKey, $this->queryProvider) : $innerKey;
         return $this->joinQuery('groupJoin', $inner, $outerKey, $innerKey, $resultSelector);
     }
 
@@ -240,54 +249,64 @@ final readonly class Queryable implements IQueryable
         ));
     }
 
-    public function orderBy(ValueExpression $keySelector): self
+    public function orderBy(ValueExpression|\Closure $keySelector): self
     {
+        $keySelector = $keySelector instanceof \Closure ? ClosureTranslator::translate($keySelector, $this->queryProvider) : $keySelector;
         return $this->call('orderBy', ['keySelector' => $keySelector, 'descending' => false]);
     }
 
-    public function orderByDescending(ValueExpression $keySelector): self
+    public function orderByDescending(ValueExpression|\Closure $keySelector): self
     {
+        $keySelector = $keySelector instanceof \Closure ? ClosureTranslator::translate($keySelector, $this->queryProvider) : $keySelector;
         return $this->call('orderBy', ['keySelector' => $keySelector, 'descending' => true]);
     }
 
-    public function thenBy(ValueExpression $keySelector): self
+    public function thenBy(ValueExpression|\Closure $keySelector): self
     {
+        $keySelector = $keySelector instanceof \Closure ? ClosureTranslator::translate($keySelector, $this->queryProvider) : $keySelector;
         return $this->secondaryOrder($keySelector, false);
     }
-    public function thenByDescending(ValueExpression $keySelector): self
+    public function thenByDescending(ValueExpression|\Closure $keySelector): self
     {
+        $keySelector = $keySelector instanceof \Closure ? ClosureTranslator::translate($keySelector, $this->queryProvider) : $keySelector;
         return $this->secondaryOrder($keySelector, true);
     }
-    public function firstOrDefault(?ValueExpression $predicate = null, mixed $default = null): mixed
+    public function firstOrDefault(ValueExpression|\Closure|null $predicate = null, mixed $default = null): mixed
     {
+        $predicate = $predicate instanceof \Closure ? ClosureTranslator::translate($predicate, $this->queryProvider) : $predicate;
         return $this->queryProvider->execute(new MethodCallExpression($this->queryExpression,
             'firstOrDefault', ['predicate' => $predicate, 'default' => $default]));
     }
-    public function single(?ValueExpression $predicate = null): mixed
+    public function single(ValueExpression|\Closure|null $predicate = null): mixed
     {
+        $predicate = $predicate instanceof \Closure ? ClosureTranslator::translate($predicate, $this->queryProvider) : $predicate;
         return $this->queryProvider->execute(new MethodCallExpression($this->queryExpression,
             'single', ['predicate' => $predicate]));
     }
-    public function singleOrDefault(?ValueExpression $predicate = null, mixed $default = null): mixed
+    public function singleOrDefault(ValueExpression|\Closure|null $predicate = null, mixed $default = null): mixed
     {
+        $predicate = $predicate instanceof \Closure ? ClosureTranslator::translate($predicate, $this->queryProvider) : $predicate;
         return $this->queryProvider->execute(new MethodCallExpression($this->queryExpression,
             'singleOrDefault', ['predicate' => $predicate, 'default' => $default]));
     }
 
-    public function last(?ValueExpression $predicate = null): mixed
+    public function last(ValueExpression|\Closure|null $predicate = null): mixed
     {
+        $predicate = $predicate instanceof \Closure ? ClosureTranslator::translate($predicate, $this->queryProvider) : $predicate;
         return $this->queryProvider->execute(new MethodCallExpression($this->queryExpression,
             'last', ['predicate' => $predicate]));
     }
 
-    public function lastOrDefault(?ValueExpression $predicate = null, mixed $default = null): mixed
+    public function lastOrDefault(ValueExpression|\Closure|null $predicate = null, mixed $default = null): mixed
     {
+        $predicate = $predicate instanceof \Closure ? ClosureTranslator::translate($predicate, $this->queryProvider) : $predicate;
         return $this->queryProvider->execute(new MethodCallExpression($this->queryExpression,
             'lastOrDefault', ['predicate' => $predicate, 'default' => $default]));
     }
 
-    public function all(ValueExpression $predicate): bool
+    public function all(ValueExpression|\Closure $predicate): bool
     {
+        $predicate = $predicate instanceof \Closure ? ClosureTranslator::translate($predicate, $this->queryProvider) : $predicate;
         return $this->queryProvider->execute(new MethodCallExpression($this->queryExpression,
             'all', ['predicate' => $predicate]));
     }
@@ -348,29 +367,33 @@ final readonly class Queryable implements IQueryable
         return $this->nonNegativeCall('takeLast', $count);
     }
 
-    public function sum(ValueExpression $selector): int|float|string
+    public function sum(ValueExpression|\Closure $selector): int|float|string
     {
+        $selector = $selector instanceof \Closure ? ClosureTranslator::translate($selector, $this->queryProvider) : $selector;
         return $this->queryProvider->execute(new MethodCallExpression(
             $this->queryExpression, 'sum', ['selector' => $selector],
         ));
     }
 
-    public function average(ValueExpression $selector): int|float|string|null
+    public function average(ValueExpression|\Closure $selector): int|float|string|null
     {
+        $selector = $selector instanceof \Closure ? ClosureTranslator::translate($selector, $this->queryProvider) : $selector;
         return $this->queryProvider->execute(new MethodCallExpression(
             $this->queryExpression, 'average', ['selector' => $selector],
         ));
     }
 
-    public function min(ValueExpression $selector): mixed
+    public function min(ValueExpression|\Closure $selector): mixed
     {
+        $selector = $selector instanceof \Closure ? ClosureTranslator::translate($selector, $this->queryProvider) : $selector;
         return $this->queryProvider->execute(new MethodCallExpression(
             $this->queryExpression, 'min', ['selector' => $selector],
         ));
     }
 
-    public function max(ValueExpression $selector): mixed
+    public function max(ValueExpression|\Closure $selector): mixed
     {
+        $selector = $selector instanceof \Closure ? ClosureTranslator::translate($selector, $this->queryProvider) : $selector;
         return $this->queryProvider->execute(new MethodCallExpression(
             $this->queryExpression, 'max', ['selector' => $selector],
         ));
@@ -393,8 +416,9 @@ final readonly class Queryable implements IQueryable
         return $this->queryProvider->execute($query->terminal('any'));
     }
 
-    public function first(?ValueExpression $predicate = null): mixed
+    public function first(ValueExpression|\Closure|null $predicate = null): mixed
     {
+        $predicate = $predicate instanceof \Closure ? ClosureTranslator::translate($predicate, $this->queryProvider) : $predicate;
         $query = $predicate === null ? $this : $this->where($predicate);
         return $this->queryProvider->execute($query->terminal('first'));
     }

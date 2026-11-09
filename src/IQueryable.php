@@ -16,7 +16,7 @@ interface IQueryable extends IteratorAggregate
 
     public function provider(): IQueryProvider;
 
-    public function groupBy(ValueExpression $keySelector): self;
+    public function groupBy(ValueExpression|\Closure $keySelector): self;
     public function distinct(): self;
     public function distinctBy(ValueExpression|\Closure $keySelector): self;
     public function countBy(ValueExpression|\Closure $keySelector): self;
@@ -46,31 +46,31 @@ interface IQueryable extends IteratorAggregate
 
     public function join(
         IQueryable $inner,
-        ValueExpression $outerKey,
-        ValueExpression $innerKey,
+        ValueExpression|\Closure $outerKey,
+        ValueExpression|\Closure $innerKey,
         ValueExpression $resultSelector,
     ): self;
 
     public function leftJoin(
         IQueryable $inner,
-        ValueExpression $outerKey,
-        ValueExpression $innerKey,
+        ValueExpression|\Closure $outerKey,
+        ValueExpression|\Closure $innerKey,
         ValueExpression $resultSelector,
     ): self;
 
     /** Preserve the inner (right) source; unmatched outer fields are null. */
     public function rightJoin(
         IQueryable $inner,
-        ValueExpression $outerKey,
-        ValueExpression $innerKey,
+        ValueExpression|\Closure $outerKey,
+        ValueExpression|\Closure $innerKey,
         ValueExpression $resultSelector,
     ): self;
 
     /** Result fields use outer.* and inner (an IEnumerable of matching rows). */
     public function groupJoin(
         IQueryable $inner,
-        ValueExpression $outerKey,
-        ValueExpression $innerKey,
+        ValueExpression|\Closure $outerKey,
+        ValueExpression|\Closure $innerKey,
         ValueExpression $resultSelector,
     ): self;
 
@@ -80,23 +80,23 @@ interface IQueryable extends IteratorAggregate
     /** @return IQueryable<list<T>> */
     public function chunk(int $size): self;
 
-    public function orderBy(ValueExpression $keySelector): self;
+    public function orderBy(ValueExpression|\Closure $keySelector): self;
 
     public function order(): self;
     public function orderDescending(): self;
 
-    public function orderByDescending(ValueExpression $keySelector): self;
+    public function orderByDescending(ValueExpression|\Closure $keySelector): self;
 
-    public function thenBy(ValueExpression $keySelector): self;
-    public function thenByDescending(ValueExpression $keySelector): self;
-    public function firstOrDefault(?ValueExpression $predicate = null, mixed $default = null): mixed;
+    public function thenBy(ValueExpression|\Closure $keySelector): self;
+    public function thenByDescending(ValueExpression|\Closure $keySelector): self;
+    public function firstOrDefault(ValueExpression|\Closure|null $predicate = null, mixed $default = null): mixed;
     public function elementAt(int $index): mixed;
     public function elementAtOrDefault(int $index, mixed $default = null): mixed;
-    public function single(?ValueExpression $predicate = null): mixed;
-    public function singleOrDefault(?ValueExpression $predicate = null, mixed $default = null): mixed;
-    public function last(?ValueExpression $predicate = null): mixed;
-    public function lastOrDefault(?ValueExpression $predicate = null, mixed $default = null): mixed;
-    public function all(ValueExpression $predicate): bool;
+    public function single(ValueExpression|\Closure|null $predicate = null): mixed;
+    public function singleOrDefault(ValueExpression|\Closure|null $predicate = null, mixed $default = null): mixed;
+    public function last(ValueExpression|\Closure|null $predicate = null): mixed;
+    public function lastOrDefault(ValueExpression|\Closure|null $predicate = null, mixed $default = null): mixed;
+    public function all(ValueExpression|\Closure $predicate): bool;
     public function contains(mixed $value): bool;
     public function skip(int $count): self;
 
@@ -112,10 +112,10 @@ interface IQueryable extends IteratorAggregate
     public function takeLast(int $count): self;
 
     /** Numeric strings from SQL decimal aggregates retain their precision. */
-    public function sum(ValueExpression $selector): int|float|string;
-    public function average(ValueExpression $selector): int|float|string|null;
-    public function min(ValueExpression $selector): mixed;
-    public function max(ValueExpression $selector): mixed;
+    public function sum(ValueExpression|\Closure $selector): int|float|string;
+    public function average(ValueExpression|\Closure $selector): int|float|string|null;
+    public function min(ValueExpression|\Closure $selector): mixed;
+    public function max(ValueExpression|\Closure $selector): mixed;
 
     public function count(): int;
 
@@ -123,7 +123,7 @@ interface IQueryable extends IteratorAggregate
 
     public function any(ValueExpression|\Closure|null $predicate = null): bool;
 
-    public function first(?ValueExpression $predicate = null): mixed;
+    public function first(ValueExpression|\Closure|null $predicate = null): mixed;
 
     /** @return IEnumerable<T> */
     public function asEnumerable(): IEnumerable;

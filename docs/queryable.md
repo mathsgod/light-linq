@@ -6,7 +6,44 @@
 `where()`、`select()`、`any()`、`skipWhile()`、`takeWhile()` 及下述六個 `By` 方法的 selector
 接受 `ValueExpression` 或受限制的 PHP closure。
 Closure 透過原始碼 AST 翻譯，不會像 `Enumerable` 的 callback 一樣逐筆呼叫。
-其他方法仍以各自簽名為準，例如 `orderBy()` 接受 `ValueExpression`。
+排序、分組、聚合、取值條件及 join key 亦支援受限制的單參數 closure，詳見下表。
+
+## 自動翻譯 selector 與 predicate
+
+下列參數可傳入 `ValueExpression` 或 PHP `Closure`；closure 在建立查詢或呼叫終結操作時
+翻譯成原有 expression tree，不是逐筆呼叫 callback，不會自動切換到 PHP 執行。
+
+| 方法 | 可自動翻譯的參數 |
+| --- | --- |
+| `orderBy`、`orderByDescending`、`thenBy`、`thenByDescending` | key selector |
+| `groupBy` | key selector |
+| `sum`、`average`、`min`、`max` | selector |
+| `first`、`firstOrDefault`、`single`、`singleOrDefault`、`last`、`lastOrDefault` | 可選 predicate |
+| `all` | predicate |
+| `join`、`leftJoin`、`rightJoin`、`groupJoin` | outer key selector、inner key selector |
+
+```php
+$names = $customers->orderBy(fn ($customer) => $customer->city)
+    ->thenByDescending(fn ($customer) => $customer->age)
+    ->select(fn ($customer) => $customer->name)->toArray();
+$groups = $customers->groupBy(fn ($customer) => $customer->city);
+$total = $orders->sum(fn ($order) => $order->total);
+$customer = $customers->firstOrDefault(fn ($customer) => $customer->id == 1, default: null);
+
+$joined = $customers->join(
+    $orders,
+    fn ($customer) => $customer->id,
+    fn ($order) => $order->customerId,
+    Expr::projection(['name' => 'outer.name', 'orderId' => 'inner.id']),
+)->toArray();
+```
+
+上述新支援的 closure 只接受一個 row 參數，不接受 index；每個 join key 相對於自己的來源。
+Join／Zip 的 result selector、selectMany 的 result selector／pair predicate 仍須傳顯式 expression。
+原有 expression 寫法及省略 predicate 的用法不變。Closure 支援的語法、原始檔定位及捕獲值規則
+與 [closure translation](closure-translation.md) 相同；不支援的語法立即拋出 `ClosureTranslationException`。
+同一行請勿放置多個同參數名的 closure，避免 reflection 無法唯一定位。
+自動翻譯後仍由原 provider 處理既有 expression；SQL 方言及功能限制仍由 provider 決定。
 詳見 [Closure translation](closure-translation.md) 的支援語法及限制。
 
 ```php
