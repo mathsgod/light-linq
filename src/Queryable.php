@@ -42,6 +42,49 @@ final readonly class Queryable implements IQueryable
     {
         return $this->call('distinct', []);
     }
+
+    public function distinctBy(ValueExpression|\Closure $keySelector): self
+    {
+        return $this->keyQuery('distinctBy', $keySelector);
+    }
+
+    public function exceptBy(IQueryable $second, ValueExpression|\Closure $keySelector): self
+    {
+        return $this->keyQuery('exceptBy', $keySelector, $second);
+    }
+
+    public function intersectBy(IQueryable $second, ValueExpression|\Closure $keySelector): self
+    {
+        return $this->keyQuery('intersectBy', $keySelector, $second);
+    }
+
+    public function unionBy(IQueryable $second, ValueExpression|\Closure $keySelector): self
+    {
+        return $this->keyQuery('unionBy', $keySelector, $second);
+    }
+
+    public function minBy(ValueExpression|\Closure $keySelector): mixed
+    {
+        return $this->queryProvider->execute($this->keyQuery('minBy', $keySelector)->expression());
+    }
+
+    public function maxBy(ValueExpression|\Closure $keySelector): mixed
+    {
+        return $this->queryProvider->execute($this->keyQuery('maxBy', $keySelector)->expression());
+    }
+
+    private function keyQuery(string $method, ValueExpression|\Closure $keySelector, ?IQueryable $second = null): self
+    {
+        if ($second !== null && $second->provider() !== $this->queryProvider) {
+            throw new \InvalidArgumentException('Key-based set queries must use the same provider instance.');
+        }
+        $keySelector = $keySelector instanceof \Closure ? ClosureTranslator::translate($keySelector, $this->queryProvider) : $keySelector;
+        $arguments = ['keySelector' => $keySelector];
+        if ($second !== null) {
+            $arguments['second'] = $second->expression();
+        }
+        return $this->call($method, $arguments);
+    }
     public function where(ValueExpression|\Closure $predicate): self
     {
         $predicate = $predicate instanceof \Closure ? ClosureTranslator::translate($predicate, $this->queryProvider) : $predicate;
@@ -206,6 +249,48 @@ final readonly class Queryable implements IQueryable
     public function take(int $count): self
     {
         return $this->nonNegativeCall('take', $count);
+    }
+
+    public function append(mixed $value): self
+    {
+        return $this->call('append', ['value' => $value]);
+    }
+
+    public function prepend(mixed $value): self
+    {
+        return $this->call('prepend', ['value' => $value]);
+    }
+
+    public function reverse(): self
+    {
+        return $this->call('reverse', []);
+    }
+
+    public function defaultIfEmpty(mixed $default = null): self
+    {
+        return $this->call('defaultIfEmpty', ['default' => $default]);
+    }
+
+    public function skipWhile(ValueExpression|\Closure $predicate): self
+    {
+        $predicate = $predicate instanceof \Closure ? ClosureTranslator::translate($predicate, $this->queryProvider) : $predicate;
+        return $this->call('skipWhile', ['predicate' => $predicate]);
+    }
+
+    public function takeWhile(ValueExpression|\Closure $predicate): self
+    {
+        $predicate = $predicate instanceof \Closure ? ClosureTranslator::translate($predicate, $this->queryProvider) : $predicate;
+        return $this->call('takeWhile', ['predicate' => $predicate]);
+    }
+
+    public function skipLast(int $count): self
+    {
+        return $this->nonNegativeCall('skipLast', $count);
+    }
+
+    public function takeLast(int $count): self
+    {
+        return $this->nonNegativeCall('takeLast', $count);
     }
 
     public function sum(ValueExpression $selector): int|float|string

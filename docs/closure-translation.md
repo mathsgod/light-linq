@@ -2,7 +2,9 @@
 
 [文件目錄](README.md) · [Queryable 與運算式](queryable.md)
 
-`Queryable::where()`、`select()` 及 `any()` 接受受限制的 PHP closure。
+`Queryable::where()`、`select()`、`any()`、`skipWhile()` 及 `takeWhile()` 接受受限制的 PHP closure。
+`distinctBy()`、`exceptBy()`、`intersectBy()`、`unionBy()`、`minBy()` 及 `maxBy()` 的
+key selector 亦接受同一類 closure。
 Translator 讀取 closure 所在的 PHP 原始檔，解析 AST，再建立 expression tree。
 它不會呼叫 closure 來推斷查詢，也不會自動把 provider 查詢改成 PHP 逐筆篩選。
 建立查詢時進行翻譯；列舉或終結操作才交給 provider 執行。

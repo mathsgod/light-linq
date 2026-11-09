@@ -18,6 +18,15 @@ interface IQueryable extends IteratorAggregate
 
     public function groupBy(ValueExpression $keySelector): self;
     public function distinct(): self;
+    public function distinctBy(ValueExpression|\Closure $keySelector): self;
+    /** The second query must select keys, not complete rows. */
+    public function exceptBy(IQueryable $second, ValueExpression|\Closure $keySelector): self;
+    /** The second query must select keys, not complete rows. */
+    public function intersectBy(IQueryable $second, ValueExpression|\Closure $keySelector): self;
+    /** The second query supplies complete elements using the same key selector. */
+    public function unionBy(IQueryable $second, ValueExpression|\Closure $keySelector): self;
+    public function minBy(ValueExpression|\Closure $keySelector): mixed;
+    public function maxBy(ValueExpression|\Closure $keySelector): mixed;
     public function where(ValueExpression|\Closure $predicate): self;
 
     public function select(ValueExpression|\Closure $selector): self;
@@ -78,6 +87,15 @@ interface IQueryable extends IteratorAggregate
     public function skip(int $count): self;
 
     public function take(int $count): self;
+
+    public function append(mixed $value): self;
+    public function prepend(mixed $value): self;
+    public function reverse(): self;
+    public function defaultIfEmpty(mixed $default = null): self;
+    public function skipWhile(ValueExpression|\Closure $predicate): self;
+    public function takeWhile(ValueExpression|\Closure $predicate): self;
+    public function skipLast(int $count): self;
+    public function takeLast(int $count): self;
 
     /** Numeric strings from SQL decimal aggregates retain their precision. */
     public function sum(ValueExpression $selector): int|float|string;

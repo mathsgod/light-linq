@@ -58,6 +58,19 @@ final class InMemoryQueryProvider implements IQueryProvider
         $source = $this->execute($expression->source);
 
         return match ($expression->method) {
+            'distinctBy', 'exceptBy', 'intersectBy', 'unionBy' => $this->keyRows($source, $expression),
+            'minBy', 'maxBy' => Enumerable::from($source)->{$expression->method}(
+                fn (mixed $row): mixed => $this->evaluate($expression->arguments['keySelector'], $row),
+            ),
+            'append' => Enumerable::from($source)->append($expression->arguments['value']),
+            'prepend' => Enumerable::from($source)->prepend($expression->arguments['value']),
+            'reverse' => Enumerable::from($source)->reverse(),
+            'defaultIfEmpty' => Enumerable::from($source)->defaultIfEmpty($expression->arguments['default']),
+            'skipLast' => Enumerable::from($source)->skipLast($expression->arguments['count']),
+            'takeLast' => Enumerable::from($source)->takeLast($expression->arguments['count']),
+            'skipWhile', 'takeWhile' => Enumerable::from($source)->{$expression->method}(
+                fn (mixed $row): bool => (bool) $this->evaluate($expression->arguments['predicate'], $row),
+            ),
             'concat', 'union', 'intersect', 'except' => $this->setRows($source, $expression),
             'selectMany' => $this->flattenRows($source, $expression),
             'join', 'leftJoin' => $this->joinRows($source, $expression),
@@ -80,6 +93,19 @@ final class InMemoryQueryProvider implements IQueryProvider
             'first' => $this->first($source),
             default => throw new \LogicException("Unsupported query method: {$expression->method}"),
         };
+    }
+
+    private function keyRows(iterable $source, MethodCallExpression $expression): \Generator
+    {
+        $keySelector = fn (mixed $row): mixed => $this->evaluate($expression->arguments['keySelector'], $row);
+        if ($expression->method === 'distinctBy') {
+            yield from Enumerable::from($source)->distinctBy($keySelector);
+            return;
+        }
+        $second = (function () use ($expression): \Generator {
+            yield from $this->execute($expression->arguments['second']);
+        })();
+        yield from Enumerable::from($source)->{$expression->method}($second, $keySelector);
     }
 
     private function setRows(iterable $source, MethodCallExpression $expression): \Generator

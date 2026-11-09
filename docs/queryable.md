@@ -3,7 +3,8 @@
 [文件目錄](README.md) · [Enumerable](enumerable.md)
 
 `Queryable` 將操作組成 expression tree，由 `IQueryProvider` 執行。
-`where()`、`select()` 及 `any()` 接受 `ValueExpression` 或受限制的 PHP closure。
+`where()`、`select()`、`any()`、`skipWhile()`、`takeWhile()` 及下述六個 `By` 方法的 selector
+接受 `ValueExpression` 或受限制的 PHP closure。
 Closure 透過原始碼 AST 翻譯，不會像 `Enumerable` 的 callback 一樣逐筆呼叫。
 其他方法仍以各自簽名為準，例如 `orderBy()` 接受 `ValueExpression`。
 詳見 [Closure translation](closure-translation.md) 的支援語法及限制。
@@ -188,6 +189,81 @@ $groups = $customers->asEnumerable()->groupJoin(
 
 `chunk()` 分割已取得的結果，並非資料庫分頁或每批發出一次 SQL 查詢；
 SQL provider 仍可能在切換前載入全部結果，先用 `where()`／`take()` 限制需要的資料。
+
+## 按 key 去重、集合運算與極值
+
+`distinctBy()`、`exceptBy()`、`intersectBy()`、`unionBy()` 按選出的 key 比較，
+保留完整元素；`minBy()`／`maxBy()` 回傳 key 最小／最大的完整元素。
+這些方法的 key selector 接受 `ValueExpression` 或受限制的單參數 closure。
+
+```php
+$unique = $people->distinctBy(fn ($person) => $person->id)->toArray();
+$keys = $blockedPeople->select(Expr::field('id'));
+$allowed = $people->exceptBy($keys, Expr::field('id'))->toArray();
+$blocked = $people->intersectBy($keys, Expr::field('id'))->toArray();
+$merged = $people->unionBy($otherPeople, fn ($person) => $person->id)->toArray();
+$youngest = $people->minBy(fn ($person) => $person->age);
+$oldest = $people->maxBy(Expr::field('age'));
+```
+
+`exceptBy()`／`intersectBy()` 的第二個查詢提供 **key 值**，通常先 `select()` 指定欄位；
+`unionBy()` 的第二個查詢提供 **完整元素**，兩邊使用同一個 selector。
+兩個查詢必須共用同一 provider 實例，否則建立查詢時拋出 `InvalidArgumentException`。
+
+記憶體 provider 沿用 Enumerable 的 equality：區分 PHP 型別，null key 可相等，
+array key 使用嚴格相等，物件 key 按 identity 比較。四個集合操作均按 key 去重，
+保留首次出現的元素及順序；union 優先保留第一個來源的元素。
+minBy／maxBy 使用 PHP `<=>` 比較 key（包括 null），相同 key 保留第一項；
+空來源拋出 `UnderflowException`，不套用 SQL 聚合忽略 null 的規則。
+
+四個集合操作延遲執行；`minBy()`／`maxBy()` 是立即執行的終結操作。
+except／intersect 每次執行先緩衝第二來源的 keys，union 依次串流兩個來源。
+沒有自訂 comparer 參數；如需要 PHP callback comparer，先 `asEnumerable()`。
+SQL／自訂 provider 需要明確支援新 expression，否則應拒絕；不會自動切換到 PHP。
+SQL 的型別、collation、null 及排序規則亦由 provider 決定。
+
+## 序列開頭、尾部與條件分段
+
+以下操作會建立新的 `IQueryable` expression，不會修改原查詢或寫入資料庫。
+`InMemoryQueryProvider` 支援全部八個方法：
+
+| 方法 | 行為 |
+| --- | --- |
+| `append($value)` | 將單一元素加到尾部，保留重複及 null |
+| `prepend($value)` | 將單一元素加到開頭 |
+| `reverse()` | 倒轉目前結果順序 |
+| `defaultIfEmpty($default = null)` | 來源沒有任何元素時才產生一個預設元素；`[null]` 不視為空 |
+| `skipWhile($predicate)` | 略過開頭連續符合條件的元素，第一次 false 後保留餘下所有元素 |
+| `takeWhile($predicate)` | 取開頭連續符合條件的元素，第一次 false 即停止 |
+| `skipLast($count)` | 略過最後 count 項 |
+| `takeLast($count)` | 取最後 count 項，保留原順序 |
+
+```php
+$names = $customers->orderBy(Expr::field('id'))->select(Expr::field('name'));
+$choices = $names->prepend('全部')->append('其他')->toArray();
+$lastNames = $names->takeLast(2)->toArray();
+$reversed = $names->reverse()->toArray();
+$fallback = $names->defaultIfEmpty('沒有客戶')->toArray();
+
+$initialSmallOrders = $orders->orderBy(Expr::field('id'))
+    ->takeWhile(fn ($order) => $order->total < 100)->toArray();
+$remaining = $orders->orderBy(Expr::field('id'))
+    ->skipWhile(Expr::lt(Expr::field('total'), 100))->toArray();
+```
+
+While predicate 接受 `ValueExpression` 或受限制的單一 row 參數 closure，翻譯規則與
+`where()` 相同，不支援 indexed callback。記憶體 provider 將 predicate 結果轉成 bool，
+null 視為 false。`skipLast()`／`takeLast()` 要求非負 count，負數在建立查詢時拋出
+`InvalidArgumentException`；零分別保留全部／回傳空序列，count 大於長度則回傳空／全部。
+
+建立查詢不讀來源，列舉時才交給 provider 執行。記憶體 provider 的 `reverse()` 要緩衝
+完整結果；`takeLast()` 讀完整個來源並保留尾部，`skipLast()` 緩衝尾部窗口。
+`takeLast(0)` 不列舉來源，`prepend()` 可在讀原來源前產生新增元素。
+來源是否能重播仍取決於原 iterable，不會替單次 Generator 增加快取能力。
+
+SQL／自訂 provider 必須明確支援這些 expression，否則應拒絕，不會自動切換至 PHP。
+需要 PHP 處理時可先 `asEnumerable()` 再呼叫同名方法。
+涉及頭尾及順序時請先明確排序；新增元素亦須符合後續欄位投影及 predicate 的資料形狀。
 
 ## 集合運算與切換到 Enumerable
 
