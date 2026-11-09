@@ -48,6 +48,11 @@ final readonly class Queryable implements IQueryable
         return $this->keyQuery('distinctBy', $keySelector);
     }
 
+    public function countBy(ValueExpression|\Closure $keySelector): self
+    {
+        return $this->keyQuery('countBy', $keySelector);
+    }
+
     public function exceptBy(IQueryable $second, ValueExpression|\Closure $keySelector): self
     {
         return $this->keyQuery('exceptBy', $keySelector, $second);
@@ -87,13 +92,13 @@ final readonly class Queryable implements IQueryable
     }
     public function where(ValueExpression|\Closure $predicate): self
     {
-        $predicate = $predicate instanceof \Closure ? ClosureTranslator::translate($predicate, $this->queryProvider) : $predicate;
+        $predicate = $predicate instanceof \Closure ? ClosureTranslator::translate($predicate, $this->queryProvider, true) : $predicate;
         return $this->call('where', ['predicate' => $predicate]);
     }
 
     public function select(ValueExpression|\Closure $selector): self
     {
-        $selector = $selector instanceof \Closure ? ClosureTranslator::translate($selector, $this->queryProvider) : $selector;
+        $selector = $selector instanceof \Closure ? ClosureTranslator::translate($selector, $this->queryProvider, true) : $selector;
         return $this->call('select', ['selector' => $selector]);
     }
 
@@ -119,12 +124,23 @@ final readonly class Queryable implements IQueryable
 
     /** Flatten another query, optionally matching each outer/inner pair. */
     public function selectMany(
-        IQueryable $inner,
-        ValueExpression $resultSelector,
+        IQueryable|ValueExpression|\Closure $inner,
+        ?ValueExpression $resultSelector = null,
         ?ValueExpression $predicate = null,
     ): self {
+        if (!$inner instanceof IQueryable) {
+            $selector = $inner instanceof \Closure ? ClosureTranslator::translate($inner, $this->queryProvider, true) : $inner;
+            return $this->call('selectMany', [
+                'selector' => $selector,
+                'resultSelector' => $resultSelector,
+                'predicate' => $predicate,
+            ]);
+        }
         if ($inner->provider() !== $this->queryProvider) {
             throw new \InvalidArgumentException('selectMany() sources must use the same provider instance.');
+        }
+        if ($resultSelector === null) {
+            throw new \InvalidArgumentException('Query-source selectMany() requires a result selector.');
         }
         return $this->call('selectMany', [
             'inner' => $inner->expression(),
@@ -194,6 +210,36 @@ final readonly class Queryable implements IQueryable
         return $this->call('chunk', ['size' => $size]);
     }
 
+    public function order(): self
+    {
+        return $this->call('order', ['descending' => false]);
+    }
+
+    public function orderDescending(): self
+    {
+        return $this->call('order', ['descending' => true]);
+    }
+
+    public function elementAt(int $index): mixed
+    {
+        if ($index < 0) {
+            throw new \OutOfBoundsException('The index is outside the sequence.');
+        }
+        return $this->queryProvider->execute(new MethodCallExpression(
+            $this->queryExpression, 'elementAt', ['index' => $index],
+        ));
+    }
+
+    public function elementAtOrDefault(int $index, mixed $default = null): mixed
+    {
+        if ($index < 0) {
+            return $default;
+        }
+        return $this->queryProvider->execute(new MethodCallExpression(
+            $this->queryExpression, 'elementAtOrDefault', ['index' => $index, 'default' => $default],
+        ));
+    }
+
     public function orderBy(ValueExpression $keySelector): self
     {
         return $this->call('orderBy', ['keySelector' => $keySelector, 'descending' => false]);
@@ -252,12 +298,12 @@ final readonly class Queryable implements IQueryable
     }
     public function skip(int $count): self
     {
-        return $this->nonNegativeCall('skip', $count);
+        return $this->call('skip', ['count' => max(0, $count)]);
     }
 
     public function take(int $count): self
     {
-        return $this->nonNegativeCall('take', $count);
+        return $this->call('take', ['count' => max(0, $count)]);
     }
 
     public function append(mixed $value): self
@@ -282,13 +328,13 @@ final readonly class Queryable implements IQueryable
 
     public function skipWhile(ValueExpression|\Closure $predicate): self
     {
-        $predicate = $predicate instanceof \Closure ? ClosureTranslator::translate($predicate, $this->queryProvider) : $predicate;
+        $predicate = $predicate instanceof \Closure ? ClosureTranslator::translate($predicate, $this->queryProvider, true) : $predicate;
         return $this->call('skipWhile', ['predicate' => $predicate]);
     }
 
     public function takeWhile(ValueExpression|\Closure $predicate): self
     {
-        $predicate = $predicate instanceof \Closure ? ClosureTranslator::translate($predicate, $this->queryProvider) : $predicate;
+        $predicate = $predicate instanceof \Closure ? ClosureTranslator::translate($predicate, $this->queryProvider, true) : $predicate;
         return $this->call('takeWhile', ['predicate' => $predicate]);
     }
 
@@ -383,8 +429,8 @@ final readonly class Queryable implements IQueryable
     private function secondaryOrder(ValueExpression $keySelector, bool $descending): self
     {
         if (!$this->queryExpression instanceof MethodCallExpression
-            || !in_array($this->queryExpression->method, ['orderBy', 'thenBy'], true)) {
-            throw new \LogicException('thenBy() must follow orderBy() or thenBy().');
+            || !in_array($this->queryExpression->method, ['order', 'orderBy', 'thenBy'], true)) {
+            throw new \LogicException('thenBy() must follow order(), orderBy() or thenBy().');
         }
         return $this->call('thenBy', ['keySelector' => $keySelector, 'descending' => $descending]);
     }

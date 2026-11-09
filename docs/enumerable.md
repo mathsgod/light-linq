@@ -128,8 +128,8 @@ Enumerable::from(['Ada', 'Bob', 'Cara'])
 單參數 callback 維持原有用法。自訂 callback 宣告第二個參數（包括可選參數），
 或使用 variadic 時會收到 index。PHP 內建函式／方法（包括 first-class callable）
 維持只傳元素，避免改變 `trim()` 等函式的可選參數含義；需要 index 請用 closure 包裝。
-所有 callback 延遲至列舉才執行。本功能屬於 Enumerable；Queryable closure 翻譯仍只接受單一 row 參數，
-需要 indexed callback 請先 `asEnumerable()`。
+所有 callback 延遲至列舉才執行。Queryable 的這五個方法亦支援受限制的 indexed closure，
+由 InMemoryQueryProvider 執行；任意 PHP callback 或尚未支援的 SQL provider 請先 `asEnumerable()`。
 
 ## 型別篩選與檢查
 
@@ -221,7 +221,7 @@ $sorted = $rows->orderBy(fn ($row) => $row['city'], 'strcasecmp')
 | `chunk($size)` | 分成多個 array，最後一組可能較短 |
 | `shuffle()` | 隨機排序；每次列舉可能不同 |
 
-數量不可為負數；`chunk()` 的大小必須大於零。
+`skip()` 的 count 小於或等於 0 時保留全部；`take()` 的 count 小於或等於 0 時回傳空序列且不列舉來源。`skipLast()`／`takeLast()` 數量仍不可為負數；`chunk()` 的大小必須大於零。
 
 ### 略過尾部元素
 
@@ -329,7 +329,7 @@ $product = $numbers->aggregate(fn ($result, $n) => $result * $n, 1); // 24
 
 `sum()`、`average()`、`min()`、`max()` 接受可選 selector。`min()`／`max()` 回傳選出的值；`minBy()`／`maxBy()` 回傳原始元素，並接受可選 comparer callback。
 
-空序列的 `sum()` 是 0；`average()`、`min()`、`max()`、`minBy()`、`maxBy()` 會拋出 `UnderflowException`。`aggregate()` 有 seed 時以 seed 開始；未提供 seed 時使用第一個元素，空序列則拋出 `UnderflowException`。`average()` 不會像 SQL 一樣略過 null，應自行先篩選不適用的值。
+空序列的 `sum()` 是 0；`average()`、`min()`、`max()`、`minBy()`、`maxBy()` 會拋出 `UnderflowException`。`aggregate()` 有 seed 時以 seed 開始；未提供 seed 時使用第一個元素，空序列則拋出 `UnderflowException`。`average()` 忽略元素或 selector 結果中的 null，只將非 null 值計入總和及分母；`[1, null, 3]` 得 2，`[null, 0]` 得 0。非空來源全為 null 時回傳 null。PHP 無法從空序列判斷 nullable 泛型型別，因此空來源維持拋出 `UnderflowException`，與 .NET nullable 空序列回傳 null 的行為仍有差異。
 
 ## 集合運算與串接
 

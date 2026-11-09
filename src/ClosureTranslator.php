@@ -13,7 +13,7 @@ final class ClosureTranslator
 {
     /** Parsed source only; captured values are read afresh for every translation. */
     private static array $parsedFiles = [];
-    public static function translate(\Closure $closure, ?IQueryProvider $provider = null): ValueExpression
+    public static function translate(\Closure $closure, ?IQueryProvider $provider = null, bool $allowIndex = false): ValueExpression
     {
         $reflection = new \ReflectionFunction($closure);
         $file = $reflection->getFileName();
@@ -42,9 +42,13 @@ final class ClosureTranslator
             throw new ClosureTranslationException('Cannot uniquely locate query closure; put closures on separate lines.');
         }
         $node = $matches[0];
-        if (count($node->params) !== 1 || $node->byRef || $node->params[0]->byRef
-            || $node->params[0]->variadic || !is_string($node->params[0]->var->name)) {
-            throw new ClosureTranslationException('Query closures require exactly one ordinary row parameter.');
+        if (!in_array(count($node->params), $allowIndex ? [1, 2] : [1], true) || $node->byRef) {
+            throw new ClosureTranslationException('Query closures require a row parameter and, for indexed operators, an optional index parameter.');
+        }
+        foreach ($node->params as $parameter) {
+            if ($parameter->byRef || $parameter->variadic || !is_string($parameter->var->name)) {
+                throw new ClosureTranslationException('Query closure parameters must be ordinary value parameters.');
+            }
         }
         if ($node instanceof Ast\ArrowFunction) {
             $body = $node->expr;
@@ -53,11 +57,18 @@ final class ClosureTranslator
         } else {
             throw new ClosureTranslationException('Query closures must contain a single return expression.');
         }
-        return self::expression($body, $node->params[0]->var->name, $reflection->getStaticVariables(), $provider);
+        $indexes = isset($node->params[1]) ? [$node->params[1]->var->name] : [];
+        return self::expression($body, $node->params[0]->var->name, $reflection->getStaticVariables(), $provider, [], $indexes);
     }
 
-    private static function expression(Node $node, string $row, array $captures, ?IQueryProvider $provider, array $scopes = []): ValueExpression
+    private static function expression(Node $node, string $row, array $captures, ?IQueryProvider $provider, array $scopes = [], array $indexes = []): ValueExpression
     {
+        if ($node instanceof Ast\Variable && is_string($node->name) && $node->name !== $row) {
+            $depth = array_search($node->name, $indexes, true);
+            if ($depth !== false) {
+                return new \Light\Linq\Expressions\IndexExpression($depth);
+            }
+        }
         if ($node instanceof Ast\PropertyFetch && $node->name instanceof Node\Identifier) {
             $path = [$node->name->toString()];
             $base = $node->var;
@@ -86,27 +97,27 @@ final class ClosureTranslator
             }
         }
         if ($node instanceof Ast\UnaryMinus || $node instanceof Ast\UnaryPlus) {
-            $operand = self::expression($node->expr, $row, $captures, $provider, $scopes);
+            $operand = self::expression($node->expr, $row, $captures, $provider, $scopes, $indexes);
             if ($operand instanceof ConstantExpression && (is_int($operand->value) || is_float($operand->value))) {
                 return new ConstantExpression($node instanceof Ast\UnaryMinus ? -$operand->value : +$operand->value);
             }
         }
         if ($node instanceof Ast\BooleanNot) {
-            return new NotExpression(self::expression($node->expr, $row, $captures, $provider, $scopes));
+            return new NotExpression(self::expression($node->expr, $row, $captures, $provider, $scopes, $indexes));
         }
         if ($node instanceof Ast\BinaryOp\Coalesce) {
             return new \Light\Linq\Expressions\CoalesceExpression(
-                self::expression($node->left, $row, $captures, $provider, $scopes),
-                self::expression($node->right, $row, $captures, $provider, $scopes));
+                self::expression($node->left, $row, $captures, $provider, $scopes, $indexes),
+                self::expression($node->right, $row, $captures, $provider, $scopes, $indexes));
         }
         if ($node instanceof Ast\Ternary) {
             if ($node->if === null) {
                 throw new ClosureTranslationException('Short ternary ?: is unsupported; use an explicit condition ? value : fallback.');
             }
             return new \Light\Linq\Expressions\ConditionalExpression(
-                self::expression($node->cond, $row, $captures, $provider, $scopes),
-                self::expression($node->if, $row, $captures, $provider, $scopes),
-                self::expression($node->else, $row, $captures, $provider, $scopes));
+                self::expression($node->cond, $row, $captures, $provider, $scopes, $indexes),
+                self::expression($node->if, $row, $captures, $provider, $scopes, $indexes),
+                self::expression($node->else, $row, $captures, $provider, $scopes, $indexes));
         }
         if ($node instanceof Ast\BinaryOp) {
             $operator = match (true) {
@@ -125,8 +136,8 @@ final class ClosureTranslator
                 $node instanceof Ast\BinaryOp\SmallerOrEqual => '<=',
                 default => throw new ClosureTranslationException('Unsupported query operator: '.$node->getType()),
             };
-            $left = self::expression($node->left, $row, $captures, $provider, $scopes);
-            $right = self::expression($node->right, $row, $captures, $provider, $scopes);
+            $left = self::expression($node->left, $row, $captures, $provider, $scopes, $indexes);
+            $right = self::expression($node->right, $row, $captures, $provider, $scopes, $indexes);
             return in_array($operator, ['and', 'or'], true)
                 ? new LogicalExpression($left, $operator, $right) : new BinaryExpression($left, $operator, $right);
         }
@@ -155,6 +166,10 @@ final class ClosureTranslator
                 }
                 $innerCaptures = $captures;
                 $innerScopes = [$row, ...$scopes];
+                $innerIndexes = array_map(
+                    static fn ($name) => $name === $closure->params[0]->var->name ? null : $name,
+                    [null, ...$indexes],
+                );
                 if ($closure instanceof Ast\ArrowFunction) {
                     $body = $closure->expr;
                 } else {
@@ -166,8 +181,9 @@ final class ClosureTranslator
                     $innerCaptures = array_intersect_key($captures, array_flip($uses));
                     // Preserve scope distances even when an explicit use list hides a row.
                     $innerScopes = array_map(static fn ($name) => in_array($name, $uses, true) ? $name : null, $innerScopes);
+                    $innerIndexes = array_map(static fn ($name) => in_array($name, $uses, true) ? $name : null, $innerIndexes);
                 }
-                $predicate = self::expression($body, $closure->params[0]->var->name, $innerCaptures, $provider, $innerScopes);
+                $predicate = self::expression($body, $closure->params[0]->var->name, $innerCaptures, $provider, $innerScopes, $innerIndexes);
                 $subquery = new MethodCallExpression($subquery, 'where', ['predicate' => $predicate]);
             }
             return new AnyExpression($subquery);
@@ -183,7 +199,7 @@ final class ClosureTranslator
             if ($provider !== null && $query->provider() !== $provider) {
                 throw new ClosureTranslationException('contains() subqueries must use the same query provider.');
             }
-            return new ContainsExpression(self::expression($node->args[0]->value, $row, $captures, $provider, $scopes), $query->expression());
+            return new ContainsExpression(self::expression($node->args[0]->value, $row, $captures, $provider, $scopes, $indexes), $query->expression());
         }
         if ($node instanceof Ast\FuncCall && $node->name instanceof Node\Name
             && !$node->name->isRelative()
@@ -202,9 +218,9 @@ final class ClosureTranslator
                 'str_contains' => 'contains',
             };
             return new \Light\Linq\Expressions\StringMatchExpression(
-                self::expression($node->args[0]->value, $row, $captures, $provider, $scopes),
+                self::expression($node->args[0]->value, $row, $captures, $provider, $scopes, $indexes),
                 $operation,
-                self::expression($node->args[1]->value, $row, $captures, $provider, $scopes),
+                self::expression($node->args[1]->value, $row, $captures, $provider, $scopes, $indexes),
             );
         }
         if ($node instanceof Ast\FuncCall && $node->name instanceof Node\Name
@@ -215,7 +231,7 @@ final class ClosureTranslator
                 if (!$argument instanceof Node\Arg || $argument->unpack || $argument->name !== null) {
                     throw new ClosureTranslationException('Scalar functions require positional arguments without unpacking.');
                 }
-                $arguments[] = self::expression($argument->value, $row, $captures, $provider, $scopes);
+                $arguments[] = self::expression($argument->value, $row, $captures, $provider, $scopes, $indexes);
             }
             try {
                 return new \Light\Linq\Expressions\ScalarFunctionExpression(strtolower($node->name->toString()), $arguments);
@@ -231,7 +247,7 @@ final class ClosureTranslator
                 }
                 $name = $item->key->value;
                 if (array_key_exists($name, $members)) { throw new ClosureTranslationException('Duplicate projection alias: '.$name); }
-                $members[$name] = self::expression($item->value, $row, $captures, $provider, $scopes);
+                $members[$name] = self::expression($item->value, $row, $captures, $provider, $scopes, $indexes);
             }
             if ($members === []) { throw new ClosureTranslationException('Query projections must not be empty.'); }
             return new ProjectionExpression($members);

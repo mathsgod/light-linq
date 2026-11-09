@@ -152,7 +152,7 @@ $pairs = $customers->selectMany(
 )->toArray();
 ```
 
-兩個查詢必須來自同一個 provider 實例。Join 的 key 相對於各自來源；result selector 使用 `outer.*`／`inner.*`。null join key 不會匹配。`selectMany()` 沒有 predicate 時會回傳所有 outer／inner 配對；這個 API 接受明確的 inner 查詢，與 Enumerable 的 callback 攤平不同。
+兩個查詢必須來自同一個 provider 實例。Join 的 key 相對於各自來源；result selector 使用 `outer.*`／`inner.*`。null join key 不會匹配。`selectMany()` 傳入明確 inner 查詢時，沒有 predicate 便回傳所有 outer／inner 配對；另支援下述 collection selector 攤平版本。
 
 若要繼續組合 SQL join，來源請使用具名 row 投影，避免純值投影。`groupJoin()` 的記憶體 provider 行為見下一節；SQL provider 尚未翻譯此操作。
 
@@ -213,6 +213,87 @@ $groups = $customers->asEnumerable()->groupJoin(
 `chunk()` 分割已取得的結果，並非資料庫分頁或每批發出一次 SQL 查詢；
 SQL provider 仍可能在切換前載入全部結果，先用 `where()`／`take()` 限制需要的資料。
 
+## Indexed callback：select、where、selectMany、skipWhile、takeWhile
+
+這五個操作支援受限制的 `(row, index)` closure，第二個參數翻譯為 `IndexExpression`。
+也可使用 `Expr::index()` 顯式建樹。index 是目前操作來源的零起始位置，忽略 array keys；
+每個操作、每次列舉獨立重新編號，不需要先計總數或緩衝來源。
+
+```php
+$result = $customers->orderBy(Expr::field('id'))
+    ->where(fn ($customer, $index) => $index % 2 == 0)
+    ->select(fn ($customer, $index) => ['name' => $customer->name, 'position' => $index])
+    ->toArray();
+
+$firstThree = $customers->takeWhile(fn ($customer, $index) => $index < 3);
+$afterThree = $customers->skipWhile(fn ($customer, $index) => $index < 3);
+$positions = $customers->select(Expr::index())->toArray();
+```
+
+`selectMany()` 新增 collection selector 版本，可傳入 `ValueExpression` 或 closure，
+逐個外層元素取得 iterable 並攤平一層。index 屬於外層來源，空子序列仍佔一個位置：
+
+```php
+$items = $rows->selectMany(fn ($row, $index) => $index == 0 ? $row->primary : $row->other)->toArray();
+$pairs = $rows->selectMany(
+    fn ($row, $index) => $row->items,
+    Expr::projection(['name' => 'outer.name', 'item' => 'inner', 'position' => Expr::index()]),
+)->toArray();
+```
+
+collection selector 必須回傳 iterable，否則列舉時拋出 `UnexpectedValueException`。
+省略 result selector 時回傳內層元素；提供時仍使用 `outer`／`inner` 欄位，
+可選 predicate 亦使用相同 pair 及外層 index。result selector／predicate 仍是顯式 expression，
+不是任意 PHP callback。原有 `selectMany($innerQuery, $resultSelector, $predicate)` 用法保持不變，
+這個版本亦可在 result selector／predicate 使用 `Expr::index()` 取得外層位置。
+
+InMemoryQueryProvider 串流執行並支援 `take()` 提早停止，index 不存在 provider 共用狀態，
+交錯列舉不會互相干擾。巢狀 `any()` 可引用外層 closure 的 index；捕獲的獨立查詢仍使用自己的 index。
+inline any predicate 仍只接受一個 row parameter。其他非 indexed 方法如 countBy 的 closure 仍只接受一個參數。
+沒有對應 indexed 操作 scope 的 `Expr::index()` 不能使用於排序等操作。
+
+SQL provider 尚須另外實作 IndexExpression 及 collection selector 翻譯，沒有自動 fallback。
+如需要任意 PHP closure，先 `asEnumerable()`。SQL 的編號還需要明確排序及子查詢處理。
+
+## 直接排序、按位置取值與 countBy
+
+`order()`／`orderDescending()` 按元素本身升序／降序排列，回傳新查詢並延遲執行。
+通常先投影出 scalar，再直接排序；可接 `thenBy()`／`thenByDescending()`。
+記憶體 provider 使用 PHP `<=>`，相同 key 保持來源順序；重新呼叫主排序方法會重設排序條件。
+沒有自訂 comparer 參數。
+
+```php
+$names = $customers->select(Expr::field('name'))->order()->toArray();
+$descending = $customers->select(Expr::field('name'))->orderDescending()->toArray();
+```
+
+`elementAt(int $index)`／`elementAtOrDefault(int $index, mixed $default = null)`
+是立即執行的終結操作，以目前結果順序從 0 編號，忽略 array／iterator keys。
+elementAt 越界拋出 `OutOfBoundsException`；elementAtOrDefault 越界才回傳預設值，
+來源中的 null／false 會原樣回傳。負索引分別立即拋錯／回傳預設值，不執行 provider。
+目前只接受從頭計算的整數索引，不支援 .NET Index 倒數索引。
+
+```php
+$third = $customers->orderBy(Expr::field('id'))->elementAt(2);
+$fallback = $customers->orderBy(Expr::field('id'))->elementAtOrDefault(99, 'missing');
+```
+
+`countBy($keySelector)` 接受 `ValueExpression` 或受限制單參數 closure，
+回傳每個 key 的 `KeyValuePair`（`key` 是選出的值，`value` 是數量）。
+可繼續使用 expression 篩選、投影或排序結果：
+
+```php
+$counts = $customers->countBy(fn ($customer) => $customer->city)
+    ->select(Expr::projection(['city' => 'key', 'count' => 'value']))->toArray();
+```
+
+記憶體 provider 按 key 首次出現排序，使用嚴格 equality（null key 可相等），
+沿用 Enumerable countBy 的規則，空來源回傳空序列。此操作延遲執行，第一項結果前
+讀完整個來源並緩衝每個 key 的統計。elementAt 在沒有前置緩衝操作時只讀到目標位置。
+SQL／自訂 provider 須另外支援 `order`（含 descending 參數）、`elementAt`、
+`elementAtOrDefault`、`countBy` expression；不會自動切換到 PHP。
+資料庫按位置取值仍應先明確排序。
+
 ## 按 key 去重、集合運算與極值
 
 `distinctBy()`、`exceptBy()`、`intersectBy()`、`unionBy()` 按選出的 key 比較，
@@ -247,6 +328,10 @@ SQL 的型別、collation、null 及排序規則亦由 provider 決定。
 
 ## 序列開頭、尾部與條件分段
 
+`skip()`／`take()` 的非正數 count 會在建立 expression 時正規化為 0：
+skip 保留全部，take 回傳空序列；記憶體 provider 的 take 不列舉來源。
+這項規則不改變 `skipLast()`／`takeLast()` 的負數驗證。
+
 以下操作會建立新的 `IQueryable` expression，不會修改原查詢或寫入資料庫。
 `InMemoryQueryProvider` 支援全部八個方法：
 
@@ -274,8 +359,8 @@ $remaining = $orders->orderBy(Expr::field('id'))
     ->skipWhile(Expr::lt(Expr::field('total'), 100))->toArray();
 ```
 
-While predicate 接受 `ValueExpression` 或受限制的單一 row 參數 closure，翻譯規則與
-`where()` 相同，不支援 indexed callback。記憶體 provider 將 predicate 結果轉成 bool，
+While predicate 接受 `ValueExpression` 或受限制的 `(row, index)` closure，翻譯規則與
+`where()` 相同。記憶體 provider 將 predicate 結果轉成 bool，
 null 視為 false。`skipLast()`／`takeLast()` 要求非負 count，負數在建立查詢時拋出
 `InvalidArgumentException`；零分別保留全部／回傳空序列，count 大於長度則回傳空／全部。
 

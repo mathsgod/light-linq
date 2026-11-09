@@ -13,6 +13,11 @@ use Light\Linq\Expressions\ValueExpression;
 
 final class Expr
 {
+    public static function index(): Expressions\IndexExpression
+    {
+        return new Expressions\IndexExpression();
+    }
+
     public static function any(IQueryable $source): Expressions\AnyExpression
     {
         return new Expressions\AnyExpression($source->expression());

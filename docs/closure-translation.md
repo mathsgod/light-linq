@@ -2,9 +2,10 @@
 
 [文件目錄](README.md) · [Queryable 與運算式](queryable.md)
 
-`Queryable::where()`、`select()`、`any()`、`skipWhile()` 及 `takeWhile()` 接受受限制的 PHP closure。
+`Queryable::where()`、`select()`、`selectMany()` collection selector、`any()`、`skipWhile()` 及 `takeWhile()` 接受受限制的 PHP closure。
 `distinctBy()`、`exceptBy()`、`intersectBy()`、`unionBy()`、`minBy()` 及 `maxBy()` 的
 key selector 亦接受同一類 closure。
+`countBy()` 的 key selector 亦支援相同翻譯規則。
 Translator 讀取 closure 所在的 PHP 原始檔，解析 AST，再建立 expression tree。
 它不會呼叫 closure 來推斷查詢，也不會自動把 provider 查詢改成 PHP 逐筆篩選。
 建立查詢時進行翻譯；列舉或終結操作才交給 provider 執行。
@@ -20,6 +21,7 @@ $customers->select(fn($c) => ['id' => $c->id, 'name' => $c->name]);
 | PHP 寫法 | Expression |
 | --- | --- |
 | `$c->name` | `FieldExpression` |
+| indexed closure 的第二個參數 | `IndexExpression` |
 | 字面值、捕獲的 scalar/null 變數 | `ConstantExpression` |
 | `+ - * / %`、`== != > >= < <=` | `BinaryExpression` |
 | `$c->name ?? 'Guest'` | `CoalesceExpression` |
@@ -63,7 +65,8 @@ SQL 大小寫比較、整數除法及除以零的行為可能與記憶體 provid
 ## Closure 限制
 
 - 支援 arrow function，或只有一個 `return` expression 的 anonymous function。
-  必須只有一個普通 row parameter；anonymous function 使用 `use` 捕獲外部值。
+  一般只有一個普通 row parameter；`select`、`where`、`selectMany` collection selector、
+  `skipWhile`、`takeWhile` 可再宣告第二個普通 index parameter。anonymous function 使用 `use` 捕獲外部值。
 - 支援 property paths、scalar/null 字面值及捕獲變數；不支援動態 property。
 - `===`、`!==`、任意函式／方法呼叫、賦值及迴圈不在支援範圍內。
 - `contains()`、`any()` 的 receiver 必須是捕獲的 `IQueryable`，且與外層共用

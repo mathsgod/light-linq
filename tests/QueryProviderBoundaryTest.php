@@ -54,11 +54,12 @@ final class QueryProviderBoundaryTest extends TestCase
     }
 
     #[DataProvider('invalidPaging')]
-    public function testNegativePagingFailsBeforeExecutingProvider(string $method): void
+    public function testNegativePagingIsNormalizedWithoutExecutingProvider(string $method): void
     {
         $query = Queryable::from(new InMemoryQueryProvider([]), 'missing');
-        $this->expectException(\InvalidArgumentException::class);
-        $query->$method(-1);
+        $next = $query->$method(-1);
+        self::assertSame($method, $next->expression()->method);
+        self::assertSame(['count' => 0], $next->expression()->arguments);
     }
 
     public function testQueryableRejectsNonIterableResultsFromCustomProvider(): void

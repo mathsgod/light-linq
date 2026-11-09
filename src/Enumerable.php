@@ -340,7 +340,7 @@ class Enumerable implements IEnumerable
 
     public function skip(int $count): IEnumerable
     {
-        self::assertNonNegative($count);
+        $count = max(0, $count);
         $source = $this;
         return new self(static function () use ($source, $count): iterable {
             $index = 0;
@@ -354,7 +354,7 @@ class Enumerable implements IEnumerable
 
     public function take(int $count): IEnumerable
     {
-        self::assertNonNegative($count);
+        $count = max(0, $count);
         $source = $this;
         return new self(static function () use ($source, $count): iterable {
             if ($count === 0) {
@@ -728,16 +728,25 @@ class Enumerable implements IEnumerable
         return $sum;
     }
 
-    public function average(?callable $selector = null): int|float
+    public function average(?callable $selector = null): int|float|null
     {
         $selector ??= static fn (mixed $item): mixed => $item;
         $sum = 0;
         $count = 0;
+        $hasElements = false;
         foreach ($this as $item) {
-            $sum += $selector($item);
+            $hasElements = true;
+            $value = $selector($item);
+            if ($value === null) {
+                continue;
+            }
+            $sum += $value;
             ++$count;
         }
         if ($count === 0) {
+            if ($hasElements) {
+                return null;
+            }
             throw new \UnderflowException('Cannot average an empty sequence.');
         }
         return $sum / $count;

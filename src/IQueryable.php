@@ -19,6 +19,7 @@ interface IQueryable extends IteratorAggregate
     public function groupBy(ValueExpression $keySelector): self;
     public function distinct(): self;
     public function distinctBy(ValueExpression|\Closure $keySelector): self;
+    public function countBy(ValueExpression|\Closure $keySelector): self;
     /** The second query must select keys, not complete rows. */
     public function exceptBy(IQueryable $second, ValueExpression|\Closure $keySelector): self;
     /** The second query must select keys, not complete rows. */
@@ -38,8 +39,8 @@ interface IQueryable extends IteratorAggregate
 
     /** Result and predicate fields use outer.* and inner.*. */
     public function selectMany(
-        IQueryable $inner,
-        ValueExpression $resultSelector,
+        IQueryable|ValueExpression|\Closure $inner,
+        ?ValueExpression $resultSelector = null,
         ?ValueExpression $predicate = null,
     ): self;
 
@@ -81,11 +82,16 @@ interface IQueryable extends IteratorAggregate
 
     public function orderBy(ValueExpression $keySelector): self;
 
+    public function order(): self;
+    public function orderDescending(): self;
+
     public function orderByDescending(ValueExpression $keySelector): self;
 
     public function thenBy(ValueExpression $keySelector): self;
     public function thenByDescending(ValueExpression $keySelector): self;
     public function firstOrDefault(?ValueExpression $predicate = null, mixed $default = null): mixed;
+    public function elementAt(int $index): mixed;
+    public function elementAtOrDefault(int $index, mixed $default = null): mixed;
     public function single(?ValueExpression $predicate = null): mixed;
     public function singleOrDefault(?ValueExpression $predicate = null, mixed $default = null): mixed;
     public function last(?ValueExpression $predicate = null): mixed;

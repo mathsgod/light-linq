@@ -34,21 +34,25 @@ final class InMemoryQueryProvider implements IQueryProvider
             throw new \LogicException('The provider expected a query expression.');
         }
 
-        if (in_array($expression->method, ['orderBy', 'thenBy'], true)) {
+        if (in_array($expression->method, ['order', 'orderBy', 'thenBy'], true)) {
             $keys = [];
             $node = $expression;
             while ($node instanceof MethodCallExpression && $node->method === 'thenBy') {
                 array_unshift($keys, $node->arguments);
                 $node = $node->source;
             }
-            if (!$node instanceof MethodCallExpression || $node->method !== 'orderBy') {
-                throw new \LogicException('thenBy() requires a preceding orderBy().');
+            if (!$node instanceof MethodCallExpression || !in_array($node->method, ['order', 'orderBy'], true)) {
+                throw new \LogicException('thenBy() requires a preceding order() or orderBy().');
             }
-            array_unshift($keys, $node->arguments);
+            array_unshift($keys, $node->method === 'order'
+                ? ['keySelector' => null, 'descending' => $node->arguments['descending']]
+                : $node->arguments);
             $items = iterator_to_array($this->iterator($this->execute($node->source)), false);
             usort($items, function ($left, $right) use ($keys): int {
                 foreach ($keys as $key) {
-                    $comparison = $this->evaluate($key['keySelector'], $left) <=> $this->evaluate($key['keySelector'], $right);
+                    $comparison = $key['keySelector'] === null
+                        ? $left <=> $right
+                        : $this->evaluate($key['keySelector'], $left) <=> $this->evaluate($key['keySelector'], $right);
                     if ($comparison !== 0) return $key['descending'] ? -$comparison : $comparison;
                 }
                 return 0;
@@ -61,6 +65,13 @@ final class InMemoryQueryProvider implements IQueryProvider
         $source = $this->execute($expression->source);
 
         return match ($expression->method) {
+            'countBy' => Enumerable::from($source)->countBy(
+                fn (mixed $row): mixed => $this->evaluate($expression->arguments['keySelector'], $row),
+            ),
+            'elementAt' => Enumerable::from($source)->elementAt($expression->arguments['index']),
+            'elementAtOrDefault' => Enumerable::from($source)->elementAtOrDefault(
+                $expression->arguments['index'], $expression->arguments['default'],
+            ),
             'distinctBy', 'exceptBy', 'intersectBy', 'unionBy' => $this->keyRows($source, $expression),
             'minBy', 'maxBy' => Enumerable::from($source)->{$expression->method}(
                 fn (mixed $row): mixed => $this->evaluate($expression->arguments['keySelector'], $row),
@@ -72,7 +83,7 @@ final class InMemoryQueryProvider implements IQueryProvider
             'skipLast' => Enumerable::from($source)->skipLast($expression->arguments['count']),
             'takeLast' => Enumerable::from($source)->takeLast($expression->arguments['count']),
             'skipWhile', 'takeWhile' => Enumerable::from($source)->{$expression->method}(
-                fn (mixed $row): bool => (bool) $this->evaluate($expression->arguments['predicate'], $row),
+                fn (mixed $row, int $index): bool => (bool) $this->evaluateIndexed($expression->arguments['predicate'], $row, $index),
             ),
             'concat', 'union', 'intersect', 'except' => $this->setRows($source, $expression),
             'selectMany' => $this->flattenRows($source, $expression),
@@ -211,15 +222,26 @@ final class InMemoryQueryProvider implements IQueryProvider
     {
         $arguments = $expression->arguments;
         $inner = null;
+        $index = 0;
         foreach ($source as $outer) {
             // Materialize once for repeated enumeration, but do not read an inner source
             // at all if the outer sequence is empty.
-            $inner ??= iterator_to_array($this->iterator($this->execute($arguments['inner'])), false);
-            foreach ($inner as $item) {
-                $pair = ['outer' => $outer, 'inner' => $item];
-                if ($arguments['predicate'] !== null && $this->collectionPredicate($arguments['predicate'], $pair) !== true) continue;
-                yield $this->evaluate($arguments['resultSelector'], $pair);
+            if (isset($arguments['selector'])) {
+                $items = $this->evaluateIndexed($arguments['selector'], $outer, $index);
+                if (!is_iterable($items)) {
+                    throw new \UnexpectedValueException('selectMany() collection selector must return an iterable.');
+                }
+            } else {
+                $inner ??= iterator_to_array($this->iterator($this->execute($arguments['inner'])), false);
+                $items = $inner;
             }
+            foreach ($items as $item) {
+                $pair = ['outer' => $outer, 'inner' => $item];
+                if ($arguments['predicate'] !== null
+                    && $this->collectionPredicate($this->bindOuterFields($arguments['predicate'], null, 0, $index, false), $pair) !== true) continue;
+                yield $arguments['resultSelector'] === null ? $item : $this->evaluateIndexed($arguments['resultSelector'], $pair, $index);
+            }
+            ++$index;
         }
     }
 
@@ -339,8 +361,9 @@ final class InMemoryQueryProvider implements IQueryProvider
 
     private function where(iterable $source, ValueExpression $predicate): \Generator
     {
+        $index = 0;
         foreach ($source as $item) {
-            if ((bool) $this->evaluate($predicate, $item)) {
+            if ((bool) $this->evaluateIndexed($predicate, $item, $index++)) {
                 yield $item;
             }
         }
@@ -348,8 +371,9 @@ final class InMemoryQueryProvider implements IQueryProvider
 
     private function select(iterable $source, ValueExpression $selector): \Generator
     {
+        $index = 0;
         foreach ($source as $item) {
-            yield $this->evaluate($selector, $item);
+            yield $this->evaluateIndexed($selector, $item, $index++);
         }
     }
 
@@ -365,7 +389,7 @@ final class InMemoryQueryProvider implements IQueryProvider
 
     private function take(iterable $source, int $count): \Generator
     {
-        if ($count === 0) {
+        if ($count <= 0) {
             return;
         }
 
@@ -394,9 +418,15 @@ final class InMemoryQueryProvider implements IQueryProvider
         throw new \UnderflowException('The query contains no elements.');
     }
 
+    private function evaluateIndexed(ValueExpression $expression, mixed $row, int $index): mixed
+    {
+        return $this->evaluate($this->bindOuterFields($expression, null, 0, $index, false), $row);
+    }
+
     private function evaluate(ValueExpression $expression, mixed $row): mixed
     {
         return match (true) {
+            $expression instanceof \Light\Linq\Expressions\IndexExpression => throw new \LogicException('Index expressions require an indexed operation in the matching scope.'),
             $expression instanceof \Light\Linq\Expressions\OuterFieldExpression => throw new \LogicException('Outer fields require an enclosing AnyExpression.'),
             $expression instanceof \Light\Linq\Expressions\AnyExpression => $this->any($this->execute($this->bindOuterFields($expression->source, $row))),
             $expression instanceof \Light\Linq\Expressions\ContainsExpression => $this->execute(new MethodCallExpression($expression->source, 'contains', ['value' => $this->evaluate($expression->item, $row)])),
@@ -419,60 +449,63 @@ final class InMemoryQueryProvider implements IQueryProvider
     }
 
     /** Bind one outer row without mutable provider state or leaking scopes through lazy iterators. */
-    private function bindOuterFields(Expression $expression, mixed $row, int $depth = 1): Expression
+    private function bindOuterFields(Expression $expression, mixed $row, int $depth = 1, ?int $index = null, bool $bindFields = true): Expression
     {
+        if ($expression instanceof \Light\Linq\Expressions\IndexExpression) {
+            return $index !== null && $expression->depth === $depth ? new ConstantExpression($index) : $expression;
+        }
         if ($expression instanceof \Light\Linq\Expressions\OuterFieldExpression) {
-            return $expression->depth === $depth
+            return $bindFields && $expression->depth === $depth
                 ? new ConstantExpression($this->readField($row, $expression->path)) : $expression;
         }
         if ($expression instanceof MethodCallExpression) {
             $arguments = $expression->arguments;
             foreach ($arguments as $name => $argument) {
-                if ($argument instanceof Expression) { $arguments[$name] = $this->bindOuterFields($argument, $row, $depth); }
+                if ($argument instanceof Expression) { $arguments[$name] = $this->bindOuterFields($argument, $row, $depth, $index, $bindFields); }
             }
-            return new MethodCallExpression($this->bindOuterFields($expression->source, $row, $depth), $expression->method, $arguments);
+            return new MethodCallExpression($this->bindOuterFields($expression->source, $row, $depth, $index, $bindFields), $expression->method, $arguments);
         }
         if ($expression instanceof \Light\Linq\Expressions\ConditionalExpression) {
             return new \Light\Linq\Expressions\ConditionalExpression(
-                $this->bindOuterFields($expression->test, $row, $depth),
-                $this->bindOuterFields($expression->ifTrue, $row, $depth),
-                $this->bindOuterFields($expression->ifFalse, $row, $depth));
+                $this->bindOuterFields($expression->test, $row, $depth, $index, $bindFields),
+                $this->bindOuterFields($expression->ifTrue, $row, $depth, $index, $bindFields),
+                $this->bindOuterFields($expression->ifFalse, $row, $depth, $index, $bindFields));
         }
         if ($expression instanceof \Light\Linq\Expressions\CoalesceExpression) {
             return new \Light\Linq\Expressions\CoalesceExpression(
-                $this->bindOuterFields($expression->left, $row, $depth),
-                $this->bindOuterFields($expression->right, $row, $depth));
+                $this->bindOuterFields($expression->left, $row, $depth, $index, $bindFields),
+                $this->bindOuterFields($expression->right, $row, $depth, $index, $bindFields));
         }
         if ($expression instanceof BinaryExpression || $expression instanceof LogicalExpression) {
             $class = $expression::class;
-            return new $class($this->bindOuterFields($expression->left, $row, $depth), $expression->operator,
-                $this->bindOuterFields($expression->right, $row, $depth));
+            return new $class($this->bindOuterFields($expression->left, $row, $depth, $index, $bindFields), $expression->operator,
+                $this->bindOuterFields($expression->right, $row, $depth, $index, $bindFields));
         }
         if ($expression instanceof \Light\Linq\Expressions\AnyExpression) {
-            return new \Light\Linq\Expressions\AnyExpression($this->bindOuterFields($expression->source, $row, $depth + 1));
+            return new \Light\Linq\Expressions\AnyExpression($this->bindOuterFields($expression->source, $row, $depth + 1, $index, $bindFields));
         }
         if ($expression instanceof \Light\Linq\Expressions\ContainsExpression) {
-            return new \Light\Linq\Expressions\ContainsExpression($this->bindOuterFields($expression->item, $row, $depth),
-                $this->bindOuterFields($expression->source, $row, $depth));
+            return new \Light\Linq\Expressions\ContainsExpression($this->bindOuterFields($expression->item, $row, $depth, $index, $bindFields),
+                $bindFields ? $this->bindOuterFields($expression->source, $row, $depth, $index, $bindFields) : $expression->source);
         }
         if ($expression instanceof \Light\Linq\Expressions\NotExpression) {
-            return new \Light\Linq\Expressions\NotExpression($this->bindOuterFields($expression->operand, $row, $depth));
+            return new \Light\Linq\Expressions\NotExpression($this->bindOuterFields($expression->operand, $row, $depth, $index, $bindFields));
         }
         if ($expression instanceof \Light\Linq\Expressions\StringMatchExpression) {
             return new \Light\Linq\Expressions\StringMatchExpression(
-                $this->bindOuterFields($expression->subject, $row, $depth), $expression->operation,
-                $this->bindOuterFields($expression->needle, $row, $depth));
+                $this->bindOuterFields($expression->subject, $row, $depth, $index, $bindFields), $expression->operation,
+                $this->bindOuterFields($expression->needle, $row, $depth, $index, $bindFields));
         }
         if ($expression instanceof \Light\Linq\Expressions\ScalarFunctionExpression) {
             return new \Light\Linq\Expressions\ScalarFunctionExpression($expression->function,
-                array_map(fn ($argument) => $this->bindOuterFields($argument, $row, $depth), $expression->arguments));
+                array_map(fn ($argument) => $this->bindOuterFields($argument, $row, $depth, $index, $bindFields), $expression->arguments));
         }
         if ($expression instanceof ProjectionExpression) {
-            return new ProjectionExpression(array_map(fn ($member) => $this->bindOuterFields($member, $row, $depth), $expression->members));
+            return new ProjectionExpression(array_map(fn ($member) => $this->bindOuterFields($member, $row, $depth, $index, $bindFields), $expression->members));
         }
         if ($expression instanceof \Light\Linq\Expressions\AggregateExpression && $expression->operand !== null) {
             return new \Light\Linq\Expressions\AggregateExpression($expression->function,
-                $this->bindOuterFields($expression->operand, $row, $depth));
+                $this->bindOuterFields($expression->operand, $row, $depth, $index, $bindFields));
         }
         return $expression;
     }

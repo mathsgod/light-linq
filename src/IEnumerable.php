@@ -197,7 +197,7 @@ interface IEnumerable extends IteratorAggregate, Countable
     public function sum(?callable $selector = null): int|float;
 
     /** @param (callable(T): int|float)|null $selector */
-    public function average(?callable $selector = null): int|float;
+    public function average(?callable $selector = null): int|float|null;
 
     /** @param (callable(T): mixed)|null $selector */
     public function min(?callable $selector = null, ?callable $comparer = null): mixed;
